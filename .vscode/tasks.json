@@ -14,6 +14,23 @@
             "problemMatcher": [
                 "$platformio"
             ]
+        },
+        {
+            "type": "PlatformIO",
+            "args": [
+                "run",
+                "--target",
+                "upload",
+                "--target",
+                "monitor"
+            ],
+            "problemMatcher": [
+                "$platformio"
+            ],
+            "group": {
+                "kind": "build",
+                "isDefault": true
+            }
         }
     ]
 }

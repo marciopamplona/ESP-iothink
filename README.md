@@ -37,7 +37,4 @@ ESPEasy_v2.0.0-dev9_normal_8285.bin  | ESP8285                 | Stable         
 
 ## More info
 
-Details and discussion are on the Experimental forum: https://www.letscontrolit.com/forum/viewforum.php?f=18
-
-We're also on IRC: #ESPEasy @freenode
 
