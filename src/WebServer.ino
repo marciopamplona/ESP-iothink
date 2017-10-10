@@ -451,7 +451,7 @@ void handle_root() {
     reply += BUILD_GIT;
 
     reply += F("<TR><TD>Local Time:<TD>");
-    if (Settings.UseNTP)
+    if (Settings.UseNTP || Settings.htpEnable)
     {
       reply += getDateTimeString('-', ':', ' ');
     }
@@ -2946,6 +2946,9 @@ void handle_advanced() {
   String ip = WebServer.arg(F("ip"));
   String syslogip = WebServer.arg(F("syslogip"));
   String ntphost = WebServer.arg(F("ntphost"));
+  String htphost = WebServer.arg(F("htphost"));
+  String htpenable = WebServer.arg(F("htpenable"));
+  String syncinterval = WebServer.arg(F("syncinterval"));
   String timezone = WebServer.arg(F("timezone"));
   String dst = WebServer.arg(F("dst"));
   String sysloglevel = WebServer.arg(F("sysloglevel"));
@@ -2972,8 +2975,15 @@ void handle_advanced() {
   {
     Settings.MessageDelay = messagedelay.toInt();
     Settings.IP_Octet = ip.toInt();
+    
     ntphost.toCharArray(tmpString, 64);
     strcpy(Settings.NTPHost, tmpString);
+
+    htphost.toCharArray(tmpString, 64);
+    strcpy(Settings.htpHost, tmpString);
+    
+    Settings.htpEnable = (htpenable == "on");
+    Settings.syncInterval = syncinterval.toInt();
     Settings.TimeZone = timezone.toInt();
     syslogip.toCharArray(tmpString, 26);
     str2ip(tmpString, Settings.Syslog_IP);
@@ -2996,7 +3006,7 @@ void handle_advanced() {
     Settings.MQTTRetainFlag = (MQTTRetainFlag == "on");
     if (!SaveSettings())
       reply += F("<span style=\"color:red\">Error saving to flash!</span>");
-    if (Settings.UseNTP)
+    if (Settings.UseNTP || Settings.htpEnable)
       initTime();
   }
 
@@ -3014,10 +3024,15 @@ void handle_advanced() {
   addFormNumericBox(reply, F("Message Delay"), F("messagedelay"), Settings.MessageDelay, 0, INT_MAX);
   addUnit(reply, F("ms"));
 
-  addFormSubHeader(reply, F("NTP Settings"));
+  addFormSubHeader(reply, F("Internet time Settings"));
 
   addFormCheckBox(reply, F("Use NTP"), F("usentp"), Settings.UseNTP);
   addFormTextBox(reply, F("NTP Hostname"), F("ntphost"), Settings.NTPHost, 63);
+  addFormCheckBox(reply, F("Use HTP"), F("htpenable"), Settings.htpEnable);
+  addFormTextBox(reply, F("HTP Hostname"), F("htphost"), Settings.htpHost, 63);
+  addFormNumericBox(reply, F("Sync interval"), F("syncinterval"), Settings.syncInterval, 0, 604800);   // 7 days max
+  addUnit(reply, F("seconds"));
+  
   addFormNumericBox(reply, F("Timezone Offset"), F("timezone"), Settings.TimeZone, -43200, 43200);   // +/-12h
   addUnit(reply, F("minutes"));
   addFormCheckBox(reply, F("DST"), F("dst"), Settings.DST);
@@ -3112,7 +3127,7 @@ void handle_download()
   str += F("_Build");
   str += BUILD;
   str += F("_");
-  if (Settings.UseNTP)
+  if (Settings.UseNTP || Settings.htpEnable)
   {
     str += getDateTimeString('\0', '\0', '\0');
   }
@@ -3838,7 +3853,7 @@ void handle_sysinfo() {
   reply += F("<TR><TD>Unit:<TD>");
   reply += Settings.Unit;
 
-  if (Settings.UseNTP)
+  if (Settings.UseNTP || Settings.htpEnable)
   {
 
     reply += F("<TR><TD>Local Time:<TD>");

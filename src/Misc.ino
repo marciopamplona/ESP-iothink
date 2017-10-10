@@ -1905,6 +1905,18 @@ struct  timeStruct {
   uint8_t Year;   // offset from 1970;
 } tm;
 
+typedef struct {
+  uint8_t Second;
+  uint8_t Minute;
+  uint8_t Hour;
+  uint8_t Wday;   // day of week, sunday is day 1
+  uint8_t Day;
+  uint8_t Month;
+  uint8_t Year;   // offset from 1970;
+} tmElements_t, TimeElements, *tmElementsPtr_t;
+
+tmElements_t tmx;
+
 uint32_t syncInterval = 3600;  // time sync will be attempted after this many seconds
 uint32_t sysTime = 0;
 uint32_t prevMillis = 0;
@@ -1964,11 +1976,12 @@ void breakTime(unsigned long timeInput, struct timeStruct &tm) {
 
 void setTime(unsigned long t) {
   sysTime = (uint32_t)t;
-  nextSyncTime = (uint32_t)t + syncInterval;
+  nextSyncTime = (uint32_t)t + Settings.syncInterval;
   prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
 }
 
 unsigned long now() {
+  String log;
   // calculate number of seconds passed since last call to now()
   while (millis() - prevMillis >= 1000) {
     // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
@@ -1976,13 +1989,18 @@ unsigned long now() {
     prevMillis += 1000;
   }
   if (nextSyncTime <= sysTime) {
-    unsigned long  t = getNtpTime();
+    unsigned long  t = 0;
+    if (Settings.UseNTP) t = getNtpTime();
+    if (Settings.htpEnable) t = getHtpTime();
+    log = "HTTP : secsSince1900: ";
+    log += t;
+    addLog(LOG_LEVEL_DEBUG, log);
     if (t != 0) {
       if (Settings.DST)
         t += SECS_PER_HOUR; // add one hour if DST active
       setTime(t);
     } else {
-      nextSyncTime = sysTime + syncInterval;
+      nextSyncTime = sysTime + Settings.syncInterval;
     }
   }
   breakTime(sysTime, tm);
@@ -2848,21 +2866,112 @@ void htmlEscape(String & html)
   html.replace(">",  "&gt;");
 }
 
-bool getHtpTime(void){
+
+tmElements_t * string_to_tm(tmElements_t *tme, String str) {
+  // Date: Sat, 28 Mar 2015 13:53:38 GMT
+  const char *months[] = {"Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"};
+  const char *days[] = {"Sun", "Mon", "Tue", "Wed", "Thu", "Sex", "Sat"};
+  
+  for (int i = 0; i < 7; i++) {
+    if (!strcmp(days[i], str.substring(6,9).c_str())) {
+      tme->Wday = i + 1;
+      break;
+    }
+  }
+
+  for (int i = 0; i < 12; i++) {
+    if (!strcmp(months[i], str.substring(14,17).c_str())) {
+      tme->Month = i + 1;
+      break;
+    }
+  }
+
+  tme->Year = str.substring(18,22).toInt()-1970;
+  tme->Day = str.substring(11,13).toInt();
+  tme->Hour = str.substring(23,25).toInt();
+  tme->Minute = str.substring(26,28).toInt();
+  tme->Second = str.substring(29,31).toInt();
+
+  String log;
+  log = F("HTTP : ");
+  log += tme->Year;
+  log += "-";
+  log += tme->Month;
+  log += "-";
+  log += tme->Day;
+  log += " ";
+  
+  log += tme->Hour;
+  log += ":";
+  log += tme->Minute;
+  log += ":";
+  log += tme->Second;
+  log += " / Wday: ";
+  
+  log += tme->Wday;
+  log += " ";
+  log += str;
+  addLog(LOG_LEVEL_DEBUG, log);
+
+  return tme;
+}
+
+unsigned long timeElementsToSecs() {   
+  // assemble time elements into time_t 
+  // note year argument is offset from 1970 (see macros in time.h to convert to other formats)
+  // previous version used full four digit year (or digits since 2000),i.e. 2009 was 2009 or 9
+    static  const uint8_t monthDays[]={31,28,31,30,31,30,31,31,30,31,30,31};
+    int i;
+    unsigned long seconds=0;
+
+    // seconds from 1970 till 1 jan 00:00:00 of the given year
+    seconds= tm.Year*(SECS_PER_DAY * 365);
+    for (i = 0; i < tm.Year; i++) {
+      if (LEAP_YEAR(i)) {
+        seconds +=  SECS_PER_DAY;   // add extra days for leap years
+      }
+    }
+    
+    // add days for this year, months start from 1
+    for (i = 1; i < tm.Month; i++) {
+      if ( (i == 2) && LEAP_YEAR(tm.Year)) { 
+        seconds += SECS_PER_DAY * 29;
+      } else {
+        seconds += SECS_PER_DAY * monthDays[i-1];  //monthDay array starts from 0
+      }
+    }
+    seconds+= (tm.Day-1) * SECS_PER_DAY;
+    seconds+= tm.Hour * SECS_PER_HOUR;
+    seconds+= tm.Minute * SECS_PER_MIN;
+    seconds+= tm.Second;
+
+    return seconds; 
+}
+
+unsigned long getHtpTime(){
   bool success = false;
-  char host[] = "www.google.com";
+  bool validTime = false;
+  char host[64] = "www.google.com";
   int port = 80;
   int connectionFailures = 0;
+  unsigned long secsSince1900=0;
   String log;
+  // Use WiFiClient class to create TCP connections
+  WiFiClient client;
 
-          // Use WiFiClient class to create TCP connections
-          WiFiClient client;
+  if (strcmp(Settings.htpHost, "") != 0){
+    strcpy(host, Settings.htpHost);
+  } else {
+    addLog(LOG_LEVEL_DEBUG, F("HTTP : default server -> google"));
+  }
+
+
           if (!client.connect(host, port))
           {
             connectionFailures++;
 
             addLog(LOG_LEVEL_ERROR, F("HTTP : connection failed"));
-            return false;
+            return sysTime;
           }
 
           if (connectionFailures)
@@ -2875,10 +2984,9 @@ bool getHtpTime(void){
           request += F("\r\n");
           request += F("User-Agent: iothink\r\nPragma: no-cache\r\nCache-Control: no-cache\r\n");
           request += F("Connection: close\r\n\r\n");
-          //addLog(LOG_LEVEL_DEBUG, request);
           client.print(request);
 
-          unsigned long timer = millis() + 200;
+          unsigned long timer = millis() + 500;
           while (!client.available() && millis() < timer)
             yield();
 
@@ -2887,16 +2995,15 @@ bool getHtpTime(void){
             // String line = client.readStringUntil('\n');
             String line;
             safeReadStringUntil(client, line, '\n');
-            //addLog(LOG_LEVEL_DEBUG_MORE, line);
             if (line.startsWith(F("HTTP")) )
             {
               addLog(LOG_LEVEL_DEBUG, F("HTTP : Success"));
               success = true;
             }
             if (success && line.startsWith(F("Date:"))){
-              log = F("HTTP : ");
-              log += line;
-              addLog(LOG_LEVEL_DEBUG, log);
+              string_to_tm((tmElements_t *)&tm, line);
+              secsSince1900 = timeElementsToSecs();
+              if (secsSince1900 > sysTime) validTime = true;
             }
 
             yield();
@@ -2905,4 +3012,12 @@ bool getHtpTime(void){
 
           client.flush();
           client.stop();
+
+          if (validTime){
+            return secsSince1900 + (Settings.TimeZone * 60UL);
+          } else {
+            return sysTime;
+          }
+
+          //return secsSince1900 - 2208988800UL + (Settings.TimeZone * SECS_PER_MIN);
 }

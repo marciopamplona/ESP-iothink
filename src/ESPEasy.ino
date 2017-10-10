@@ -73,9 +73,11 @@
 // You can always change these during runtime and save to eeprom
 // After loading firmware, issue a 'reset' command to load the defaults.
 
-#define DEFAULT_NAME        "Desto0009"         // Enter your device friendly name
-#define DEFAULT_SSID        "IO_think"          // Enter your network SSID
-#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
+#define DEFAULT_NAME        "Desto000X"         // Enter your device friendly name
+//#define DEFAULT_SSID        "IO_think"          // Enter your network SSID
+//#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
+#define DEFAULT_SSID        "MFPHome4"          // Enter your network SSID
+#define DEFAULT_KEY         "frozen9999"            // Enter your network WPA key
 #define DEFAULT_DELAY       60                  // Enter your Send delay in seconds
 #define DEFAULT_AP_KEY      "configesp"         // Enter network WPA key for AP (config) mode
 
@@ -108,7 +110,7 @@
 // Enable FEATURE_ADC_VCC to measure supply voltage using the analog pin
 // Please note that the TOUT pin has to be disconnected in this mode
 // Use the "System Info" device to read the VCC value
-#define FEATURE_ADC_VCC                  false
+#define FEATURE_ADC_VCC                  true
 
 
 //enable Arduino OTA updating.
@@ -442,6 +444,7 @@ struct SettingsStruct
   boolean       UseValueLogger;
   boolean       htpEnable;
   char          htpHost[64];
+  uint32_t      syncInterval;
   //its safe to extend this struct, up to several bytes, default values in config are 0
   //look in misc.ino how config.dat is used because also other stuff is stored in it at different offsets.
   //TODO: document config.dat somewhere here
@@ -962,7 +965,7 @@ void runOncePerSecond()
   }
 
   // clock events
-  if (Settings.UseNTP)
+  if (Settings.UseNTP || Settings.htpEnable)
     checkTime();
 
   unsigned long timer = micros();
