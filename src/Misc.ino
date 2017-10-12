@@ -2118,7 +2118,7 @@ unsigned long getNtpTime()
     udp.endPacket();
 
     uint32_t beginWait = millis();
-    while (millis() - beginWait < 1000) {
+    while (millis() - beginWait < 3000) {
       int size = udp.parsePacket();
       if (size >= NTP_PACKET_SIZE) {
         udp.read(packetBuffer, NTP_PACKET_SIZE);  // read packet into the buffer

@@ -76,7 +76,7 @@
 #define DEFAULT_NAME        "Desto000X"         // Enter your device friendly name
 //#define DEFAULT_SSID        "IO_think"          // Enter your network SSID
 //#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
-#define DEFAULT_SSID        "MFPHome4"          // Enter your network SSID
+#define DEFAULT_SSID        "MFPHome1"          // Enter your network SSID
 #define DEFAULT_KEY         "frozen9999"            // Enter your network WPA key
 #define DEFAULT_DELAY       60                  // Enter your Send delay in seconds
 #define DEFAULT_AP_KEY      "configesp"         // Enter network WPA key for AP (config) mode
@@ -94,7 +94,7 @@
 #define DEFAULT_SERVER      "192.168.0.8"       // Enter your Server IP address
 #define DEFAULT_PORT        8080                // Enter your Server port value
 
-#define DEFAULT_PROTOCOL    2                   // Protocol used for controller communications
+#define DEFAULT_PROTOCOL    6                   // Protocol used for controller communications
 //   1 = Domoticz HTTP
 //   2 = Domoticz MQTT
 //   3 = Nodo Telnet
@@ -147,7 +147,7 @@
 #define ESP_PROJECT_PID           2016110801L
 #define VERSION                             2
 #define BUILD                           20000 // git version 2.0.0
-#define BUILD_NOTES                 " - Mega"
+#define BUILD_NOTES                 " - Iothink"
 
 #ifndef BUILD_GIT
 #define BUILD_GIT "(custom)"
@@ -824,8 +824,7 @@ void setup()
 
   sendSysInfoUDP(3);
 
-  if (Settings.UseNTP)
-    initTime();
+  if (Settings.UseNTP || Settings.htpEnable) initTime();
 
 #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;

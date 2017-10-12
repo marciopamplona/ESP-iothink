@@ -7,6 +7,7 @@
 //    P1 wifi gateway shield (see https://circuits.io/circuits/2460082)
 //    see http://romix.macuser.nl for kits
 //#######################################################################################################
+#ifdef PLUGIN_BUILD_TESTING
 
 #define PLUGIN_044
 #define PLUGIN_ID_044         44
@@ -412,3 +413,4 @@ bool checkDatagram(int len) {
   }
   return validCRCFound;
 }
+#endif // PLUGIN_BUILD_TESTING
