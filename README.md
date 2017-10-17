@@ -1,5 +1,3 @@
-#teste
-
 # ESPEasy (mega branch)
 
 Build status: [![Build Status](https://travis-ci.org/letscontrolit/ESPEasy.svg?branch=mega)](https://travis-ci.org/letscontrolit/ESPEasy)
@@ -38,5 +36,3 @@ ESPEasy_v2.0.0-dev9_test_8285.bin    | ESP8285                 | Stable + Test  
 ESPEasy_v2.0.0-dev9_normal_8285.bin  | ESP8285                 | Stable                      |
 
 ## More info
-
-

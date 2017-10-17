@@ -600,6 +600,7 @@ struct RTCStruct
   byte flashDayCounter;
   unsigned long flashCounter;
   unsigned long bootCounter;
+  unsigned long readCounter;
 } RTC;
 
 
