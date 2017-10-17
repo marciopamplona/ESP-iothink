@@ -663,6 +663,8 @@ String eventBuffer = "";
 uint16_t lowestRAM = 0;
 String lowestRAMfunction = "";
 
+unsigned long timeCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
+
 /*********************************************************************************************\
  * SETUP
 \*********************************************************************************************/
@@ -964,16 +966,14 @@ void runOncePerSecond()
   }
 
   // clock events
-  if (Settings.UseNTP || Settings.htpEnable)
-    checkTime();
+  if (Settings.UseNTP || Settings.htpEnable) checkTime();
 
   unsigned long timer = micros();
   PluginCall(PLUGIN_ONCE_A_SECOND, 0, dummyString);
 
   checkSystemTimers();
 
-  if (Settings.UseRules)
-    rulesTimers();
+  if (Settings.UseRules) rulesTimers();
 
   timer = micros() - timer;
 

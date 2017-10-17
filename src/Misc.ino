@@ -1982,6 +1982,9 @@ void setTime(unsigned long t) {
 
 unsigned long now() {
   String log;
+
+  
+
   // calculate number of seconds passed since last call to now()
   while (millis() - prevMillis >= 1000) {
     // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
@@ -1992,7 +1995,7 @@ unsigned long now() {
     unsigned long  t = 0;
     if (Settings.UseNTP) t = getNtpTime();
     if (Settings.htpEnable) t = getHtpTime();
-    log = "HTTP : secsSince1900: ";
+    log = "NOW : secsSince1900: ";
     log += t;
     addLog(LOG_LEVEL_DEBUG, log);
     if (t != 0) {
@@ -2959,13 +2962,15 @@ unsigned long getHtpTime(){
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
 
+  if (!nextSyncTime){
+    addLog(LOG_LEVEL_ERROR, F("HTTP : first time sync"));
+  }
+
   if (strcmp(Settings.htpHost, "") != 0){
     strcpy(host, Settings.htpHost);
   } else {
     addLog(LOG_LEVEL_DEBUG, F("HTTP : default server -> google"));
   }
-
-
           if (!client.connect(host, port))
           {
             connectionFailures++;
@@ -2974,8 +2979,7 @@ unsigned long getHtpTime(){
             return sysTime;
           }
 
-          if (connectionFailures)
-            connectionFailures--;
+          if (connectionFailures) connectionFailures--;
 
           // This will send the request to the server
           String request = F("HEAD HTTP/1.1\r\n");
@@ -2987,8 +2991,7 @@ unsigned long getHtpTime(){
           client.print(request);
 
           unsigned long timer = millis() + 500;
-          while (!client.available() && millis() < timer)
-            yield();
+          while (!client.available() && millis() < timer) yield();
 
           // Read all the lines of the reply from server and log them
           while (client.available()) {
