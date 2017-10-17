@@ -34,5 +34,3 @@ ESPEasy_v2.0.0-dev9_normal_4096.bin  | ESP8266 with 4Mb flash  | Stable         
 ESPEasy_v2.0.0-dev9_dev_8285.bin     | ESP8285                 | Stable + Test + Development |
 ESPEasy_v2.0.0-dev9_test_8285.bin    | ESP8285                 | Stable + Test               |
 ESPEasy_v2.0.0-dev9_normal_8285.bin  | ESP8285                 | Stable                      |
-
-## More info

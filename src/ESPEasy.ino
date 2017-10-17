@@ -664,7 +664,7 @@ String eventBuffer = "";
 uint16_t lowestRAM = 0;
 String lowestRAMfunction = "";
 
-unsigned long timeCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
+unsigned long clockCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
 
 /*********************************************************************************************\
  * SETUP

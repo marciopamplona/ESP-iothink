@@ -1983,15 +1983,15 @@ void setTime(unsigned long t) {
 unsigned long now() {
   String log;
 
-  
-
   // calculate number of seconds passed since last call to now()
   while (millis() - prevMillis >= 1000) {
     // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
     sysTime++;
     prevMillis += 1000;
   }
-  if (nextSyncTime <= sysTime) {
+
+  // Intervalo de SYNC
+  if (!syncedClock() && (nextSyncTime <= sysTime)) {
     unsigned long  t = 0;
     if (Settings.UseNTP) t = getNtpTime();
     if (Settings.htpEnable) t = getHtpTime();
@@ -2076,7 +2076,6 @@ void checkTime()
     }
   }
 }
-
 
 unsigned long getNtpTime()
 {
@@ -3023,4 +3022,59 @@ unsigned long getHtpTime(){
           }
 
           //return secsSince1900 - 2208988800UL + (Settings.TimeZone * SECS_PER_MIN);
+}
+
+bool syncedClock(){
+  
+  if (sysTime > clockCompare) {
+    return true;
+  } else {
+    return false;
+  }
+
+}
+
+bool haveInternet(){
+  if (WiFi.status() == WL_CONNECTED){
+    if (getGoogle()){ return true; } else { return false; }
+  } else {
+    return false;
+  }
+}
+
+bool getGoogle(){
+  char host[64] = "www.google.com";
+  int port = 80;
+  int connectionFailures = 0;
+  String log;
+  // Use WiFiClient class to create TCP connections
+  WiFiClient client;
+
+  if (!client.connect(host, port))
+  {
+    connectionFailures++;
+    addLog(LOG_LEVEL_ERROR, F("HTTP : connection failed"));
+    return false;
+  }
+  if (connectionFailures) connectionFailures--;
+  // This will send the request to the server
+  String request = F("HEAD HTTP/1.1\r\n");
+  request += F("Host: ");
+  request += host;
+  request += F("\r\n");
+  request += F("User-Agent: iothink\r\nPragma: no-cache\r\nCache-Control: no-cache\r\n");
+  request += F("Connection: close\r\n\r\n");
+  client.print(request);
+  unsigned long timer = millis() + 500;
+  while (!client.available() && millis() < timer) yield();
+  // Read all the lines of the reply from server and log them
+  while (client.available()) {
+    String line;
+    safeReadStringUntil(client, line, '\n');
+    if (line.startsWith(F("HTTP")) )
+    {
+      return true;
+    }
+  }
+  return false;
 }
