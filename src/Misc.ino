@@ -1990,6 +1990,11 @@ unsigned long now() {
     prevMillis += 1000;
   }
 
+  // log = "NOW : secsSince1900: ";
+  // log += sysTime;
+  // addLog(LOG_LEVEL_DEBUG, log);
+  bool test = syncedClock();
+
   // Intervalo de SYNC
   if (!syncedClock() && (nextSyncTime <= sysTime)) {
     unsigned long  t = 0;
@@ -3025,10 +3030,10 @@ unsigned long getHtpTime(){
 }
 
 bool syncedClock(){
-  
   if (sysTime > clockCompare) {
     return true;
   } else {
+    addLog(LOG_LEVEL_ERROR, F("CLOCK : not synced"));
     return false;
   }
 
@@ -3036,8 +3041,9 @@ bool syncedClock(){
 
 bool haveInternet(){
   if (WiFi.status() == WL_CONNECTED){
-    if (getGoogle()){ return true; } else { return false; }
+    if (getGoogle()){ return true; } else { addLog(LOG_LEVEL_ERROR, F("CONNECTION : wifi ok, no internet")); return false; }
   } else {
+    addLog(LOG_LEVEL_ERROR, F("CONNECTION : no wifi"));    
     return false;
   }
 }
