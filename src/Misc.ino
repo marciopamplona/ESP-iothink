@@ -1990,11 +1990,6 @@ unsigned long now() {
     prevMillis += 1000;
   }
 
-  // log = "NOW : secsSince1900: ";
-  // log += sysTime;
-  // addLog(LOG_LEVEL_DEBUG, log);
-  bool test = syncedClock();
-
   // Intervalo de SYNC
   if (!syncedClock() && (nextSyncTime <= sysTime)) {
     unsigned long  t = 0;

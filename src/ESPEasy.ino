@@ -118,7 +118,7 @@
 // #define FEATURE_ARDUINO_OTA
 
 //enable mDNS mode (adds about 6kb ram and some bytes IRAM)
-// #define FEATURE_MDNS
+#define FEATURE_MDNS
 
 
 //enable reporting status to ESPEasy developers.
@@ -144,13 +144,13 @@
 // ********************************************************************************
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
-#define ESP_PROJECT_PID           2016110801L
+#define ESP_PROJECT_PID           20171019L
 #define VERSION                             2
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
 
 #ifndef BUILD_GIT
-#define BUILD_GIT "(custom)"
+  #define BUILD_GIT "(custom)"
 #endif
 
 #define MAX_FLASHWRITES_PER_DAY           100 // per 24 hour window
@@ -603,15 +603,9 @@ struct RTCStruct
   unsigned long readCounter;
 } RTC;
 
-os_timer_t rtc_test_t;
-#define RTC_MAGIC 0x55aaaa55
-
-// 128 bytes
-typedef struct {
-  uint64 timeAcc;
-  uint32 magic;
-  uint32 timeBase;
-} RTC_TIMER;
+#include <RtcDS3231.h>
+#define countof(a) (sizeof(a) / sizeof(a[0]))
+RtcDS3231<TwoWire> Rtc(Wire);
 
 int deviceCount = -1;
 int protocolCount = -1;
@@ -732,12 +726,6 @@ void setup()
     log = F("INIT : Cold Boot");
   }
 
-  // log += F("\r\n");
-  // log += F("CLOCK: RTC time: ");
-  // log += (uint32) system_get_rtc_time();
-  // log += F("\r\n");
-  // log += F("CLOCK: SYS time: ");
-  // log += (uint32) system_get_time();
 
   RTC.deepSleepState=0;
   saveToRTC();
@@ -785,6 +773,47 @@ void setup()
     Serial.setDebugOutput(true);
 
   hardwareInit();
+
+///////////////////////////////////////
+  Rtc.Begin();
+  
+  // Compile time
+  RtcDateTime dt = RtcDateTime(__DATE__, __TIME__);
+  RtcDateTime now = Rtc.GetDateTime();
+  char datestring[20];
+  
+  snprintf_P(datestring, 
+          countof(datestring),
+          PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
+          now.Month(),
+          now.Day(),
+          now.Year(),
+          now.Hour(),
+          now.Minute(),
+          now.Second() );
+  log += F("\nDATE_TIME: ");
+  log += datestring;
+
+  if (!Rtc.IsDateTimeValid()) 
+  {
+      log += "\nRTC lost confidence in the DateTime!";
+      Rtc.SetDateTime(dt);
+  }
+    if (!Rtc.GetIsRunning())
+  {
+      log += "\nRTC was not actively running, starting now";
+      Rtc.SetIsRunning(true);
+  }
+  
+  now = Rtc.GetDateTime();
+  if (now < dt) 
+  {
+      log += "\nRTC is older than compile time!  (Updating DateTime)";
+      Rtc.SetDateTime(dt);
+  }
+  addLog(LOG_LEVEL_INFO, log);
+
+//////////////////////////////////////////////
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
   WifiAPconfig();
