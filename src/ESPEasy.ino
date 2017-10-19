@@ -76,8 +76,8 @@
 #define DEFAULT_NAME        "Desto000X"         // Enter your device friendly name
 //#define DEFAULT_SSID        "IO_think"          // Enter your network SSID
 //#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
-#define DEFAULT_SSID        "MFPHome1"          // Enter your network SSID
-#define DEFAULT_KEY         "frozen9999"            // Enter your network WPA key
+#define DEFAULT_SSID        "IO_think"          // Enter your network SSID
+#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
 #define DEFAULT_DELAY       60                  // Enter your Send delay in seconds
 #define DEFAULT_AP_KEY      "configesp"         // Enter network WPA key for AP (config) mode
 
@@ -603,6 +603,15 @@ struct RTCStruct
   unsigned long readCounter;
 } RTC;
 
+os_timer_t rtc_test_t;
+#define RTC_MAGIC 0x55aaaa55
+
+// 128 bytes
+typedef struct {
+  uint64 timeAcc;
+  uint32 magic;
+  uint32 timeBase;
+} RTC_TIMER;
 
 int deviceCount = -1;
 int protocolCount = -1;
@@ -694,6 +703,7 @@ void setup()
   addLog(LOG_LEVEL_INFO, log);
 
 
+
   //warm boot
   if (readFromRTC())
   {
@@ -722,13 +732,17 @@ void setup()
     log = F("INIT : Cold Boot");
   }
 
+  // log += F("\r\n");
+  // log += F("CLOCK: RTC time: ");
+  // log += (uint32) system_get_rtc_time();
+  // log += F("\r\n");
+  // log += F("CLOCK: SYS time: ");
+  // log += (uint32) system_get_time();
+
   RTC.deepSleepState=0;
   saveToRTC();
 
   addLog(LOG_LEVEL_INFO, log);
-
-
-
 
   fileSystemCheck();
   LoadSettings();
