@@ -1975,11 +1975,20 @@ void breakTime(unsigned long timeInput, struct timeStruct &tm) {
 }
 
 void setTime(unsigned long t) {
+  RtcDateTime dt;
+  dt.InitWithEpoch32Time(t);
+
+  Rtc.SetDateTime(dt);
+
   sysTime = (uint32_t)t;
-  nextSyncTime = (uint32_t)t + Settings.syncInterval;
-  prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
+
 }
 
+// void setTime(unsigned long t) {
+//   sysTime = (uint32_t)t;
+//   nextSyncTime = (uint32_t)t + Settings.syncInterval;
+//   prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
+// }
 // unsigned long now() {
   
 
@@ -2034,13 +2043,12 @@ unsigned long now() {
     addLog(LOG_LEVEL_DEBUG, log);
     if (ntp != 0) {
       if (Settings.DST) ntp += SECS_PER_HOUR; // add one hour if DST active
-      // setTime(t);   // TODO
+      setTime(ntp);
     } else if (htp != 0){
       if (Settings.DST) htp += SECS_PER_HOUR; // add one hour if DST active
-      // setTime(t);   // TODO
-    } else {
-      nextSyncTime = sysTime + Settings.syncInterval;
+      setTime(htp);
     }
+    nextSyncTime = sysTime + Settings.syncInterval;
   }
   breakTime(sysTime, tm);
   return (unsigned long)sysTime;  
