@@ -801,6 +801,9 @@ void setup()
       Rtc.SetDateTime(compileTime);
   }
 
+  Rtc.Enable32kHzPin(false);
+  Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone); 
+
   log += "\nINTERNAL TEMP: ";
   log += Rtc.GetTemperature().AsFloat();
   log += "C";
@@ -824,10 +827,11 @@ void setup()
         }
     }
   }
-  else
+  else {
     // 3 connect attempts
     WifiConnect(3);
-
+  }
+  
   #ifdef FEATURE_REPORTING
   ReportStatus();
   #endif

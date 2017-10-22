@@ -2026,23 +2026,27 @@ unsigned long now() {
   RtcDateTime now = Rtc.GetDateTime();
   sysTime = now.Epoch32Time();
 
-  // Intervalo de SYNC
+  // No intervalo de SYNC ? Relógio está sincronizado ? Há internet ?
   if ((!syncedClock() || (nextSyncTime <= sysTime)) && haveInternet()&&(Settings.UseNTP || Settings.htpEnable)) {
     unsigned long  ntp = 0, htp = 0;
     String log;
-    if (Settings.UseNTP) {
-      ntp = getNtpTime();
-      log = "NTP time return : secsSince1900: ";
-      log += ntp;
-      log += "\n";
-    }
+
     if (Settings.htpEnable) {
       htp = getHtpTime();
       log += "HTP time return : secsSince1900: ";
       log += htp;
       log += "\n";
     }
+
+    if (Settings.UseNTP) {
+      ntp = getNtpTime();
+      log = "NTP time return : secsSince1900: ";
+      log += ntp;
+      log += "\n";
+    }
+
     addLog(LOG_LEVEL_DEBUG, log);
+
     if (ntp != 0) {
       if (Settings.DST) ntp += SECS_PER_HOUR; // add one hour if DST active
       setTime(ntp);
@@ -2128,8 +2132,8 @@ unsigned long getNtpTime()
 {
   WiFiUDP udp;
   udp.begin(123);
-  for (byte x = 1; x < 4; x++)
-  {
+  // for (byte x = 1; x < 4; x++)
+  // {
     String log = F("NTP  : NTP sync request:");
     log += x;
     addLog(LOG_LEVEL_DEBUG_MORE, log);
@@ -2186,7 +2190,7 @@ unsigned long getNtpTime()
     }
     log = F("NTP  : No reply");
     addLog(LOG_LEVEL_DEBUG_MORE, log);
-  }
+  // }
   return 0;
 }
 
