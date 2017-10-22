@@ -1980,34 +1980,70 @@ void setTime(unsigned long t) {
   prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
 }
 
-unsigned long now() {
-  String log;
+// unsigned long now() {
+  
 
-  // calculate number of seconds passed since last call to now()
-  while (millis() - prevMillis >= 1000) {
-    // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
-    sysTime++;
-    prevMillis += 1000;
-  }
+//   // calculate number of seconds passed since last call to now()
+//   while (millis() - prevMillis >= 1000) {
+//     // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
+//     sysTime++;
+//     prevMillis += 1000;
+//   }
+
+//   // Intervalo de SYNC
+//   if (!syncedClock() && (nextSyncTime <= sysTime)) {
+//     unsigned long  t = 0;
+//     String log;
+//     if (Settings.UseNTP) t = getNtpTime();
+//     if (Settings.htpEnable) t = getHtpTime();
+//     log = "NOW : secsSince1900: ";
+//     log += t;
+//     addLog(LOG_LEVEL_DEBUG, log);
+//     if (t != 0) {
+//       if (Settings.DST)
+//         t += SECS_PER_HOUR; // add one hour if DST active
+//       setTime(t);
+//     } else {
+//       nextSyncTime = sysTime + Settings.syncInterval;
+//     }
+//   }
+//   breakTime(sysTime, tm);
+//   return (unsigned long)sysTime;
+// }
+
+unsigned long now() {
+
+  // Obtém data do RTC físico
+  RtcDateTime now = Rtc.GetDateTime();
+  sysTime = now.Epoch32Time();
 
   // Intervalo de SYNC
-  if (!syncedClock() && (nextSyncTime <= sysTime)) {
-    unsigned long  t = 0;
-    if (Settings.UseNTP) t = getNtpTime();
-    if (Settings.htpEnable) t = getHtpTime();
-    log = "NOW : secsSince1900: ";
-    log += t;
+  if ((!syncedClock() || (nextSyncTime <= sysTime)) && haveInternet()&&(Settings.UseNTP || Settings.htpEnable)) {
+    unsigned long  ntp = 0, htp = 0;
+    String log;
+    if (Settings.UseNTP) {
+      ntp = getNtpTime();
+      log = "NTP time return : secsSince1900: ";
+      log += ntp;  
+    }
+    if (Settings.htpEnable) {
+      htp = getHtpTime();
+      log += "HTP time return : secsSince1900: ";
+      log += htp;
+    }
     addLog(LOG_LEVEL_DEBUG, log);
-    if (t != 0) {
-      if (Settings.DST)
-        t += SECS_PER_HOUR; // add one hour if DST active
-      setTime(t);
+    if (ntp != 0) {
+      if (Settings.DST) ntp += SECS_PER_HOUR; // add one hour if DST active
+      // setTime(t);   // TODO
+    } else if (htp != 0){
+      if (Settings.DST) htp += SECS_PER_HOUR; // add one hour if DST active
+      // setTime(t);   // TODO
     } else {
       nextSyncTime = sysTime + Settings.syncInterval;
     }
   }
   breakTime(sysTime, tm);
-  return (unsigned long)sysTime;
+  return (unsigned long)sysTime;  
 }
 
 int year()
@@ -2048,7 +2084,8 @@ int weekday()
 
 void initTime()
 {
-  nextSyncTime = 0;
+  //nextSyncTime = 0;
+  if (Settings.UseNTP || Settings.htpEnable) nextSyncTime = Settings.syncInterval;
   now();
 }
 
@@ -3080,3 +3117,11 @@ bool getGoogle(){
   return false;
 }
 
+String getDateTimeStringN(RtcDateTime now){
+  String datestring;
+  char buffer[20];
+
+  sprintf(buffer,"%02u/%02u/%04u %02u:%02u:%02u", now.Day(),now.Month(),now.Year(),now.Hour(),now.Minute(),now.Second());
+  datestring = String(buffer);
+  return datestring;
+}

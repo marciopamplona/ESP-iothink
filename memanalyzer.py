@@ -23,7 +23,7 @@ import os
 TOTAL_IRAM = 32786;
 TOTAL_DRAM = 81920;
 
-env="dev_4096"
+env="normal_4096"
 
 sections = OrderedDict([
     ("data", "Initialized Data (RAM)"),

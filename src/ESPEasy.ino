@@ -216,7 +216,7 @@
 #else
   #define DEVICES_MAX                      64
 #endif
-#define TASKS_MAX                          12 // max 12!
+#define TASKS_MAX                           8 // max 12!
 #define CONTROLLER_MAX                      3 // max 4!
 #define NOTIFICATION_MAX                    3 // max 4!
 #define VARS_PER_TASK                       4
@@ -322,6 +322,9 @@ extern "C" {
 #include "user_interface.h"
 }
 
+#include <RtcDS3231.h>
+#define countof(a) (sizeof(a) / sizeof(a[0]))
+RtcDS3231<TwoWire> Rtc(Wire);
 
 #ifdef FEATURE_ARDUINO_OTA
 #include <ArduinoOTA.h>
@@ -347,7 +350,6 @@ ESP8266WebServer WebServer(80);
 
 // udp protocol stuff (syslog, global sync, node info list, ntp time)
 WiFiUDP portUDP;
-
 
 
 extern "C" {
@@ -603,9 +605,7 @@ struct RTCStruct
   unsigned long readCounter;
 } RTC;
 
-#include <RtcDS3231.h>
-#define countof(a) (sizeof(a) / sizeof(a[0]))
-RtcDS3231<TwoWire> Rtc(Wire);
+
 
 int deviceCount = -1;
 int protocolCount = -1;
@@ -774,42 +774,31 @@ void setup()
 
   hardwareInit();
 
-///////////////////////////////////////
+/////////////////////////////////////// RTC CHECKS
   Rtc.Begin();
   
   // Compile time
-  RtcDateTime dt = RtcDateTime(__DATE__, __TIME__);
+  RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
   RtcDateTime now = Rtc.GetDateTime();
-  char datestring[20];
-  
-  snprintf_P(datestring, 
-          countof(datestring),
-          PSTR("%02u/%02u/%04u %02u:%02u:%02u"),
-          now.Month(),
-          now.Day(),
-          now.Year(),
-          now.Hour(),
-          now.Minute(),
-          now.Second() );
+
   log += F("\nDATE_TIME: ");
-  log += datestring;
+  log += getDateTimeStringN(now);
 
   if (!Rtc.IsDateTimeValid()) 
   {
-      log += "\nRTC lost confidence in the DateTime!";
-      Rtc.SetDateTime(dt);
+      log += " -> RTC lost confidence in the DateTime!";
+      Rtc.SetDateTime(compileTime);
   }
     if (!Rtc.GetIsRunning())
   {
-      log += "\nRTC was not actively running, starting now";
+      log += " -> RTC was not actively running, starting now";
       Rtc.SetIsRunning(true);
   }
   
-  now = Rtc.GetDateTime();
-  if (now < dt) 
+  if (now < compileTime) 
   {
-      log += "\nRTC is older than compile time!  (Updating DateTime)";
-      Rtc.SetDateTime(dt);
+      log += " -> RTC is older than compile time!  (Updating DateTime)";
+      Rtc.SetDateTime(compileTime);
   }
   addLog(LOG_LEVEL_INFO, log);
 
@@ -870,7 +859,9 @@ void setup()
 
   sendSysInfoUDP(3);
 
-  if (Settings.UseNTP || Settings.htpEnable) initTime();
+  //if (Settings.UseNTP || Settings.htpEnable) initTime();
+  
+  initTime();
 
 #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
@@ -1010,7 +1001,8 @@ void runOncePerSecond()
   }
 
   // clock events
-  if (Settings.UseNTP || Settings.htpEnable) checkTime();
+  //if (Settings.UseNTP || Settings.htpEnable) checkTime();
+  checkTime();
 
   unsigned long timer = micros();
   PluginCall(PLUGIN_ONCE_A_SECOND, 0, dummyString);
@@ -1268,6 +1260,7 @@ boolean checkSystemTimers()
 bool runningBackgroundTasks=false;
 void backgroundtasks()
 {
+  tcpCleanup();
   //prevent recursion!
   if (runningBackgroundTasks)
   {
@@ -1276,7 +1269,7 @@ void backgroundtasks()
   }
   runningBackgroundTasks=true;
 
-  tcpCleanup();
+  //tcpCleanup();
 
   if (Settings.UseSerial)
     if (Serial.available())
@@ -1284,15 +1277,17 @@ void backgroundtasks()
         serial();
 
   // process DNS, only used if the ESP has no valid WiFi config
-  if (wifiSetup)
-    dnsServer.processNextRequest();
+  if (wifiSetup) dnsServer.processNextRequest();
 
   WebServer.handleClient();
+
   if(Settings.ControllerEnabled[0])
     MQTTclient.loop();
-  checkUDP();
+  
+  // Desabilitado
+  // checkUDP();
 
-  #ifdef FEATURE_ARDUINO_OTA
+  #ifdef FEATURE_ARDUINO_OTA 
   ArduinoOTA.handle();
 
   //once OTA is triggered, only handle that and dont do other stuff. (otherwise it fails)

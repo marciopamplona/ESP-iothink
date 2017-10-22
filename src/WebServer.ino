@@ -176,7 +176,7 @@ void sendWebPageChunkedBegin(String& log)
 {
   statusLED(true);
   WebServer.setContentLength(CONTENT_LENGTH_UNKNOWN);
-  // WebServer.sendHeader("Content-Type","text/html",true);
+  WebServer.sendHeader("Content-Type","text/html",true);
   WebServer.sendHeader("Cache-Control","no-cache");
   WebServer.sendHeader("Transfer-Encoding","chunked");
   WebServer.send(200);
@@ -184,7 +184,7 @@ void sendWebPageChunkedBegin(String& log)
 
 void sendWebPageChunkedData(String& log, String& data)
 {
-  checkRAM(F("sendWebPageChunkedData"));
+  //checkRAM(F("sendWebPageChunkedData"));
   if (data.length() > 0)
   {
     statusLED(true);
@@ -248,8 +248,8 @@ void processAndSendWebPageTemplate(String& pageTemplate, String& pageContent)
     else   //no closing "}}"
       pageTemplate = pageTemplate.substring(2);   //eat "{{"
 
-    //send the accumulated HTML if junk is 500+ bytes
-    if (pageResult.length() > 500)
+    //send the accumulated HTML if junk is 250+ bytes
+    if (pageResult.length() > 250)
     {
       sendWebPageChunkedData(log, pageResult);
     }
@@ -366,11 +366,33 @@ void getWebPageTemplateVar(const String& varName, String& varValue)
 
 void writeDefaultCSS(void)
 {
-  return; //TODO
-
   if (!SPIFFS.exists("esp.css"))
   {
-    String defaultCSS = PGMT(pgDefaultCSS);
+    String defaultCSS = F(
+      //color sheme: #07D #D50 #DB0 #A0D
+      "* {font-family:sans-serif; font-size:12pt;}"
+      "h1 {font-size:16pt; color:#D50; margin:8px 0 0 0; font-weight:bold;}"
+      "h2 {font-size:12pt; margin:8px -4px 0 -4px; padding:6px; background-color:#444; color:#FFF; font-weight:bold;}"
+      "h3 {font-size:12pt; margin:16px -4px 0 -4px; padding:4px; background-color:#EEE; color:#444; font-weight:bold;}"
+      "h6 {font-size:10pt; color:#D50; text-align:center;}"
+      ".menu {background-color:#FFF; color:#07D; margin:8px; text-decoration:none}"
+      ".button {margin:4px; padding:4px 16px; background-color:#07D; color:#FFF; text-decoration:none; border-radius:4px}"
+      ".button.link {}"
+      ".button.help {padding:2px 4px; border:solid 1px #FFF; border-radius:50%}"
+      ".menu:hover {background:#DDF;}"
+      ".button:hover {background:#369;}"
+      "th {padding:6px; background-color:#444; color:#FFF; font-weight:bold;}"
+      "td {padding:4px;}"
+      "tr {padding:4px;}"
+      "table {color:black;}"
+      ".div_l {float:left;}"
+      ".div_r {float:right; margin:2px; padding:1px 10px; border-radius:4px; background-color:#FD0; color:#06B;}"
+      ".div_br {clear:both;}"
+      ".note {color:#444; font-style:italic}"
+      ".active {text-decoration:underline;}"
+      ".on {color:green;}"
+      ".off {color:red;}"
+      );
 
     fs::File f = SPIFFS.open("esp.css", "w");
     if (f)
@@ -410,6 +432,9 @@ void addFooter(String& str)
 // Web Interface root page
 //********************************************************************************
 void handle_root() {
+  
+  // String logg = F("handle_root");
+  // addLog(LOG_LEVEL_INFO, logg);
 
   // if Wifi setup, launch setup wizard
   if (wifiSetup)
@@ -451,12 +476,12 @@ void handle_root() {
     reply += BUILD_GIT;
 
     reply += F("<TR><TD>Local Time:<TD>");
-    if (Settings.UseNTP || Settings.htpEnable)
-    {
+    //if (Settings.UseNTP || Settings.htpEnable)
+    //{
       reply += getDateTimeString('-', ':', ' ');
-    }
-    else
-      reply += F("NTP disabled");
+    //}
+    //else
+    //  reply += F("NTP disabled");
 
     reply += F("<TD><TD>Uptime:<TD>");
     char strUpTime[40];
@@ -3853,12 +3878,12 @@ void handle_sysinfo() {
   reply += F("<TR><TD>Unit:<TD>");
   reply += Settings.Unit;
 
-  if (Settings.UseNTP || Settings.htpEnable)
-  {
+  //if (Settings.UseNTP || Settings.htpEnable)
+  //{
 
     reply += F("<TR><TD>Local Time:<TD>");
     reply += getDateTimeString('-', ':', ' ');
-  }
+  //}
 
   reply += F("<TR><TD>Uptime:<TD>");
   char strUpTime[40];
