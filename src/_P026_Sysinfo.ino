@@ -40,7 +40,7 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
     case PLUGIN_WEBFORM_LOAD:
       {
         byte choice = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        String options[9];
+        String options[11];
         options[0] = F("Uptime");
         options[1] = F("Free RAM");
         options[2] = F("Wifi RSSI");
@@ -50,7 +50,10 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
         options[6] = F("IP 2.Octet");
         options[7] = F("IP 3.Octet");
         options[8] = F("IP 4.Octet");
-        addFormSelector(string, F("Indicator"), F("plugin_026"), 9, options, NULL, choice);
+        options[9] = F("DS3231 Temperature");
+        options[10] = F("Date & Time");
+        
+        addFormSelector(string, F("Indicator"), F("plugin_026"), 11, options, NULL, choice);
 
         success = true;
         break;
@@ -115,6 +118,16 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
           case 8:
           {
             value = WiFi.localIP()[3];
+            break;
+          }
+          case 9:
+          {
+            value = Rtc.GetTemperature().AsFloat();
+            break;
+          }
+          case 10:
+          {
+            value = sysTime - (Settings.TimeZone * 60UL); // Retorna sempre GMT para não confundir a galera
             break;
           }
         }

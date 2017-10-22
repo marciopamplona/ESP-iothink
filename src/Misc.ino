@@ -2034,7 +2034,7 @@ unsigned long now() {
       ntp = getNtpTime();
       log = "NTP time return : secsSince1900: ";
       log += ntp;
-      log += "\n"
+      log += "\n";
     }
     if (Settings.htpEnable) {
       htp = getHtpTime();

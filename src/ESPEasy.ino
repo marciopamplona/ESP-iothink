@@ -800,6 +800,11 @@ void setup()
       log += " -> RTC is older than compile time!  (Updating DateTime)";
       Rtc.SetDateTime(compileTime);
   }
+
+  log += "\nINTERNAL TEMP: ";
+  log += Rtc.GetTemperature().AsFloat();
+  log += "C";
+
   addLog(LOG_LEVEL_INFO, log);
 
 //////////////////////////////////////////////
