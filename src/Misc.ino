@@ -2033,12 +2033,14 @@ unsigned long now() {
     if (Settings.UseNTP) {
       ntp = getNtpTime();
       log = "NTP time return : secsSince1900: ";
-      log += ntp;  
+      log += ntp;
+      log += "\n"
     }
     if (Settings.htpEnable) {
       htp = getHtpTime();
       log += "HTP time return : secsSince1900: ";
       log += htp;
+      log += "\n";
     }
     addLog(LOG_LEVEL_DEBUG, log);
     if (ntp != 0) {
