@@ -447,6 +447,7 @@ struct SettingsStruct
   boolean       htpEnable;
   char          htpHost[64];
   uint32_t      syncInterval;
+  int8_t        samplesPerTx;
   //its safe to extend this struct, up to several bytes, default values in config are 0
   //look in misc.ino how config.dat is used because also other stuff is stored in it at different offsets.
   //TODO: document config.dat somewhere here
@@ -667,7 +668,11 @@ String eventBuffer = "";
 uint16_t lowestRAM = 0;
 String lowestRAMfunction = "";
 
-unsigned long clockCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
+
+// Compile time
+RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
+unsigned long clockCompare = compileTime.Epoch32Time(); // Friday, 13 de October de 2017 às 13:55:32
+//unsigned long clockCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
 
 /*********************************************************************************************\
  * SETUP
@@ -709,8 +714,11 @@ void setup()
       log = F("INIT : Rebooted from deepsleep #");
       lastBootCause=BOOT_CAUSE_DEEP_SLEEP;
     }
-    else
+    else {
       log = F("INIT : Warm boot #");
+      // Zera contador de leituras se não acordou do sleep
+      RTC.readCounter = 0;
+    }
 
     log += RTC.bootCounter;
 
@@ -729,6 +737,9 @@ void setup()
 
   RTC.deepSleepState=0;
   saveToRTC();
+
+  log += "Reading Counter: ";
+  log += RTC.readCounter;
 
   addLog(LOG_LEVEL_INFO, log);
 
@@ -777,8 +788,6 @@ void setup()
 /////////////////////////////////////// RTC CHECKS
   Rtc.Begin();
   
-  // Compile time
-  RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
   RtcDateTime now = Rtc.GetDateTime();
 
   log += F("\nDATE_TIME: ");
@@ -815,22 +824,25 @@ void setup()
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
   WifiAPconfig();
 
-  if (Settings.deepSleep)
-  {
-    //only one attempt in deepsleep, to conserve battery
-    if (!WifiConnect(1))
-    {
-        if (Settings.deepSleepOnFail)
-        {
-          addLog(LOG_LEVEL_ERROR, F("SLEEP: Connection failed, going back to sleep."));
-          deepSleep(Settings.Delay);
-        }
-    }
-  }
-  else {
-    // 3 connect attempts
-    WifiConnect(3);
-  }
+  // Não sai conectando na Wifi
+  /////////////////////////////
+
+  // if (Settings.deepSleep)
+  // {
+  //   //only one attempt in deepsleep, to conserve battery
+  //   if (!WifiConnect(1))
+  //   {
+  //       if (Settings.deepSleepOnFail)
+  //       {
+  //         addLog(LOG_LEVEL_ERROR, F("SLEEP: Connection failed, going back to sleep."));
+  //         deepSleep(Settings.Delay);
+  //       }
+  //   }
+  // }
+  // else {
+  //   // 3 connect attempts
+  //   WifiConnect(3);
+  // }
   
   #ifdef FEATURE_REPORTING
   ReportStatus();
@@ -906,7 +918,6 @@ void loop()
     WifiConnect(1);
     wifiSetupConnect = false;
   }
-
 
   // Deep sleep mode, just run all tasks one time and go back to sleep as fast as possible
   if (isDeepSleepEnabled())
@@ -1108,6 +1119,19 @@ void checkSensors()
         timerSensor[x] = 1;
       SensorSendTask(x);
     }
+  }
+  RTC.readCounter++;
+
+  // Verifica se pode transmitir, resultado é múltiplo do samplesPerTx
+  if ((RTC.readCounter % Settings.samplesPerTx)==0){
+    String log;
+    log = "Readcounter > samplesPerTx: ";
+    log += RTC.readCounter;
+    log += " / ";
+    log += Settings.samplesPerTx;
+    addLog(LOG_LEVEL_DEBUG, log);
+  } else {
+
   }
   saveUserVarToRTC();
 }
