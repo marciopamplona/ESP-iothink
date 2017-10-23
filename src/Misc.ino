@@ -2135,7 +2135,7 @@ unsigned long getNtpTime()
   // for (byte x = 1; x < 4; x++)
   // {
     String log = F("NTP  : NTP sync request:");
-    log += x;
+    //log += x;
     addLog(LOG_LEVEL_DEBUG_MORE, log);
 
     const int NTP_PACKET_SIZE = 48; // NTP time is in the first 48 bytes of message
@@ -3079,7 +3079,7 @@ bool syncedClock(){
   if (sysTime > clockCompare) {
     return true;
   } else {
-    addLog(LOG_LEVEL_ERROR, F("CLOCK : not synced"));
+    addLog(LOG_LEVEL_DEBUG, F("CLOCK : not synced"));
     return false;
   }
 
@@ -3087,9 +3087,9 @@ bool syncedClock(){
 
 bool haveInternet(){
   if (WiFi.status() == WL_CONNECTED){
-    if (getGoogle()){ return true; } else { addLog(LOG_LEVEL_ERROR, F("CONNECTION : wifi ok, no internet")); return false; }
+    if (getGoogle()){ return true; } else { addLog(LOG_LEVEL_DEBUG, F("CONNECTION : wifi ok, no internet")); return false; }
   } else {
-    addLog(LOG_LEVEL_ERROR, F("CONNECTION : no wifi"));    
+    addLog(LOG_LEVEL_DEBUG, F("CONNECTION : no wifi"));    
     return false;
   }
 }

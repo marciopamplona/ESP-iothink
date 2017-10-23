@@ -145,7 +145,7 @@
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
 #define ESP_PROJECT_PID           20171019L
-#define VERSION                             2
+#define VERSION                             3
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
 
@@ -679,7 +679,6 @@ unsigned long clockCompare = compileTime.Epoch32Time(); // Friday, 13 de October
 \*********************************************************************************************/
 void setup()
 {
-
   lowestRAM = FreeMem();
 
   Serial.begin(115200);
@@ -738,13 +737,14 @@ void setup()
   RTC.deepSleepState=0;
   saveToRTC();
 
-  log += "Reading Counter: ";
+  log += " - Reading Counter: ";
   log += RTC.readCounter;
 
   addLog(LOG_LEVEL_INFO, log);
 
   fileSystemCheck();
   LoadSettings();
+  Settings.samplesPerTx = 3;
 
   if (strcasecmp(SecuritySettings.WifiSSID, "ssid") == 0)
     wifiSetup = true;
@@ -786,6 +786,8 @@ void setup()
   hardwareInit();
 
 /////////////////////////////////////// RTC CHECKS
+  //delay(10000);
+
   Rtc.Begin();
   
   RtcDateTime now = Rtc.GetDateTime();
@@ -822,7 +824,8 @@ void setup()
 //////////////////////////////////////////////
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
-  WifiAPconfig();
+
+  //WifiAPconfig();
 
   // Não sai conectando na Wifi
   /////////////////////////////
@@ -843,7 +846,8 @@ void setup()
   //   // 3 connect attempts
   //   WifiConnect(3);
   // }
-  
+  // WifiConnect(0);
+
   #ifdef FEATURE_REPORTING
   ReportStatus();
   #endif
@@ -902,6 +906,7 @@ void setup()
 
   writeDefaultCSS();
 
+  WifiDisconnect();
 }
 
 
@@ -912,12 +917,12 @@ void loop()
 {
   loopCounter++;
 
-  if (wifiSetupConnect)
-  {
-    // try to connect for setup wizard
-    WifiConnect(1);
-    wifiSetupConnect = false;
-  }
+  // if (wifiSetupConnect)
+  // {
+  //   // try to connect for setup wizard
+  //   WifiConnect(1);
+  //   wifiSetupConnect = false;
+  // }
 
   // Deep sleep mode, just run all tasks one time and go back to sleep as fast as possible
   if (isDeepSleepEnabled())
@@ -1091,7 +1096,7 @@ void runEach30Seconds()
   if (loopCounterLast > loopCounterMax)
     loopCounterMax = loopCounterLast;
 
-  WifiCheck();
+  //WifiCheck();
 
   #ifdef FEATURE_REPORTING
   ReportStatus();
