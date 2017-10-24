@@ -163,7 +163,6 @@ boolean FHEMHTTPsend(String & url, String & buffer, byte index)
     return false;
   }
 
-  statusLED(true);
   if (connectionFailures)
     connectionFailures--;
 

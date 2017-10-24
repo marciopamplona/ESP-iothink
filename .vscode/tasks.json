@@ -31,6 +31,16 @@
                 "kind": "build",
                 "isDefault": true
             }
+        },
+        {
+            "type": "PlatformIO",
+            "args": [
+                "device",
+                "monitor"
+            ],
+            "problemMatcher": [
+                "$platformio"
+            ]
         }
     ]
 }

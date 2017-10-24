@@ -153,7 +153,6 @@ boolean HTTPSend011(struct EventStruct *event)
     addLog(LOG_LEVEL_ERROR, F("HTTP : connection failed"));
     return false;
   }
-  statusLED(true);
   if (connectionFailures)
     connectionFailures--;
 

@@ -279,7 +279,7 @@ void ExecuteCommand(byte source, const char *Line)
     success = true;
     if (GetArgv(Line, TmpStr1, 4))
     {
-      float result = 0;
+      double result = 0;
       byte error = Calculate(TmpStr1, &result);
       UserVar[(VARS_PER_TASK * (Par1 - 1)) + Par2 - 1] = result;
     }

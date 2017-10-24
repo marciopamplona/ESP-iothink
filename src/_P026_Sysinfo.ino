@@ -10,6 +10,8 @@
 boolean Plugin_026(byte function, struct EventStruct *event, String& string)
 {
   boolean success = false;
+  double value = 0;
+  // double v = sysTime - (Settings.TimeZone * 60) ;
 
   switch (function)
   {
@@ -51,7 +53,7 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
         options[7] = F("IP 3.Octet");
         options[8] = F("IP 4.Octet");
         options[9] = F("DS3231 Temperature");
-        options[10] = F("Date & Time");
+        options[10] = F("Date & Time Epoch");
         
         addFormSelector(string, F("Indicator"), F("plugin_026"), 11, options, NULL, choice);
 
@@ -68,7 +70,7 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_READ:
       {
-        float value = 0;
+        
         switch(Settings.TaskDevicePluginConfig[event->TaskIndex][0])
         {
           case 0:
@@ -127,14 +129,21 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
           }
           case 10:
           {
-            value = sysTime - (Settings.TimeZone * 60UL); // Retorna sempre GMT para não confundir a galera
+            value = sysTime - (Settings.TimeZone * 60); // Retorna sempre GMT para não confundir a galera
+            // value = v;
             break;
           }
         }
-        UserVar[event->BaseVarIndex] = value;
-        String log = F("SYS  : ");
+
+        String log = F("SYS [");
+        log += sysTime;
+        log += ("] : ");
         log += value;
+        // log += " - v: ";
+        // log += v;
         addLog(LOG_LEVEL_INFO,log);
+
+        UserVar[event->BaseVarIndex] = value;
         success = true;
         break;
       }

@@ -59,7 +59,6 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
   // char log[256];
   char c_payload[384];
 
-  statusLED(true);
 
   if (length>sizeof(c_payload)-1)
   {
@@ -168,7 +167,6 @@ void MQTTConnect()
 
       //MQTTclient.publish(LWTTopic.c_str(), "Connected");
 
-      statusLED(true);
       break; // end loop if succesfull
     }
     else

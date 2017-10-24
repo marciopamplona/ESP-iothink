@@ -124,7 +124,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
               "{{css}}"
               "</head>"
               "<body>"
-              "<h1>Welcome to iothink sensores AP</h1>"
+              "<h1>Welcome to IOTHINK sensores AP</h1>"
               "{{error}}"
               "{{content}}"
               "<BR><h6>Powered by www.desto.com.br</h6>"
@@ -140,7 +140,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
               "{{css}}"
               "</head>"
               "<body>"
-              "<h1>iothink sensores: {{name}}</h1>"
+              "<h1>IOTHINK sensores: {{name}}</h1>"
               "{{error}}"
               "{{content}}"
               "<BR><h6>Powered by www.desto.com.br</h6>"
@@ -158,7 +158,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
       "</head>"
       "<body class='bodymenu'>"
         "<header class='headermenu'>"
-          "<h1>iothink sensores: {{name}} {{logo}}</h1>"
+          "<h1>IOTHINK sensores: {{name}} {{logo}}</h1>"
           "{{menu}}"
         "</header>"
         "{{error}}"
@@ -174,7 +174,6 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
 
 void sendWebPageChunkedBegin(String& log)
 {
-  statusLED(true);
   WebServer.setContentLength(CONTENT_LENGTH_UNKNOWN);
   WebServer.sendHeader("Content-Type","text/html",true);
   WebServer.sendHeader("Cache-Control","no-cache");
@@ -187,7 +186,6 @@ void sendWebPageChunkedData(String& log, String& data)
   //checkRAM(F("sendWebPageChunkedData"));
   if (data.length() > 0)
   {
-    statusLED(true);
     log += F(" [");
     log += data.length();
     log += F("]");
@@ -556,7 +554,7 @@ void handle_root() {
               reply += F("ESP Easy");
               break;
             case NODE_TYPE_ID_ESP_EASYM_STD:
-              reply += F("iothink sensores");
+              reply += F("IOTHINK sensores");
               break;
             case NODE_TYPE_ID_ESP_EASY32_STD:
               reply += F("ESP Easy 32");
@@ -3297,7 +3295,6 @@ void handleFileUpload() {
 bool loadFromFS(boolean spiffs, String path) {
   if (!isLoggedIn()) return false;
 
-  statusLED(true);
 
   String dataType = F("text/plain");
   if (path.endsWith("/")) path += F("index.htm");
@@ -3344,7 +3341,6 @@ bool loadFromFS(boolean spiffs, String path) {
     WebServer.streamFile(dataFile, dataType);
     dataFile.close();
   }
-  statusLED(true);
 
   addLog(LOG_LEVEL_DEBUG, log);
   return true;

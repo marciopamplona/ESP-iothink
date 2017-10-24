@@ -176,8 +176,6 @@ boolean WifiConnectSSID(char WifiSSID[], char WifiKey[], byte connectAttempts)
     {
       if (WiFi.status() != WL_CONNECTED)
       {
-        statusLED(false);
-        delay(50);
       }
       else
         break;
@@ -195,7 +193,6 @@ boolean WifiConnectSSID(char WifiSSID[], char WifiKey[], byte connectAttempts)
       log += F(")");
 
       addLog(LOG_LEVEL_INFO, log);
-      statusLED(true);
       return(true);
     }
     else
@@ -205,11 +202,7 @@ boolean WifiConnectSSID(char WifiSSID[], char WifiKey[], byte connectAttempts)
       ETS_UART_INTR_DISABLE();
       wifi_station_disconnect();
       ETS_UART_INTR_ENABLE();
-      for (byte x = 0; x < 20; x++)
-      {
-        statusLED(true);
-        delay(50);
-      }
+
     }
   }
 
@@ -277,7 +270,7 @@ void WifiCheck()
     //give it time to automaticly reconnect
     if (NC_Count > 2)
     {
-      WifiConnect(2);
+      WifiConnect(1);
 
       C_Count=0;
       NC_Count = 0;

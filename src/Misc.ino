@@ -377,62 +377,62 @@ boolean timeOut(unsigned long timer)
 #define STATUS_PWM_NORMALFADE (PWMRANGE>>8)
 #define STATUS_PWM_TRAFFICRISE (PWMRANGE>>1)
 
-void statusLED(boolean traffic)
-{
-  static int gnStatusValueCurrent = -1;
-  static long int gnLastUpdate = millis();
+// void statusLED(boolean traffic)
+// {
+//   static int gnStatusValueCurrent = -1;
+//   static long int gnLastUpdate = millis();
 
-  if (Settings.Pin_status_led == -1)
-    return;
+//   if (Settings.Pin_status_led == -1)
+//     return;
 
-  if (gnStatusValueCurrent<0)
-    pinMode(Settings.Pin_status_led, OUTPUT);
+//   if (gnStatusValueCurrent<0)
+//     pinMode(Settings.Pin_status_led, OUTPUT);
 
-  int nStatusValue = gnStatusValueCurrent;
+//   int nStatusValue = gnStatusValueCurrent;
 
-  if (traffic)
-  {
-    nStatusValue += STATUS_PWM_TRAFFICRISE; //ramp up fast
-  }
-  else
-  {
+//   if (traffic)
+//   {
+//     nStatusValue += STATUS_PWM_TRAFFICRISE; //ramp up fast
+//   }
+//   else
+//   {
 
-    if (WiFi.status() == WL_CONNECTED)
-    {
-      long int delta=millis()-gnLastUpdate;
-      if (delta>0 || delta<0 )
-      {
-        nStatusValue -= STATUS_PWM_NORMALFADE; //ramp down slowly
-        nStatusValue = std::max(nStatusValue, STATUS_PWM_NORMALVALUE);
-        gnLastUpdate=millis();
-      }
-    }
-    //AP mode is active
-    else if (WifiIsAP())
-    {
-      nStatusValue = ((millis()>>1) & PWMRANGE) - (PWMRANGE>>2); //ramp up for 2 sec, 3/4 luminosity
-    }
-    //Disconnected
-    else
-    {
-      nStatusValue = (millis()>>1) & (PWMRANGE>>2); //ramp up for 1/2 sec, 1/4 luminosity
-    }
-  }
+//     if (WiFi.status() == WL_CONNECTED)
+//     {
+//       long int delta=millis()-gnLastUpdate;
+//       if (delta>0 || delta<0 )
+//       {
+//         nStatusValue -= STATUS_PWM_NORMALFADE; //ramp down slowly
+//         nStatusValue = std::max(nStatusValue, STATUS_PWM_NORMALVALUE);
+//         gnLastUpdate=millis();
+//       }
+//     }
+//     //AP mode is active
+//     else if (WifiIsAP())
+//     {
+//       nStatusValue = ((millis()>>1) & PWMRANGE) - (PWMRANGE>>2); //ramp up for 2 sec, 3/4 luminosity
+//     }
+//     //Disconnected
+//     else
+//     {
+//       nStatusValue = (millis()>>1) & (PWMRANGE>>2); //ramp up for 1/2 sec, 1/4 luminosity
+//     }
+//   }
 
-  nStatusValue = constrain(nStatusValue, 0, PWMRANGE);
+//   nStatusValue = constrain(nStatusValue, 0, PWMRANGE);
 
-  if (gnStatusValueCurrent != nStatusValue)
-  {
-    gnStatusValueCurrent = nStatusValue;
+//   if (gnStatusValueCurrent != nStatusValue)
+//   {
+//     gnStatusValueCurrent = nStatusValue;
 
-    long pwm = nStatusValue * nStatusValue; //simple gamma correction
-    pwm >>= 10;
-    if (Settings.Pin_status_led_Inversed)
-      pwm = PWMRANGE-pwm;
+//     long pwm = nStatusValue * nStatusValue; //simple gamma correction
+//     pwm >>= 10;
+//     if (Settings.Pin_status_led_Inversed)
+//       pwm = PWMRANGE-pwm;
 
-    analogWrite(Settings.Pin_status_led, pwm);
-  }
-}
+//     analogWrite(Settings.Pin_status_led, pwm);
+//   }
+// }
 
 
 /********************************************************************************************\
@@ -1146,12 +1146,15 @@ void initLog()
   \*********************************************************************************************/
 void addLog(byte loglevel, String& string)
 {
+  String s(string);
+  s = String("[")+String(millis())+String("] ") + s;
   addLog(loglevel, string.c_str());
 }
 
 void addLog(byte logLevel, const __FlashStringHelper* flashString)
 {
     String s(flashString);
+    s = String("[")+String(millis())+String("] ") + s;
     addLog(logLevel, s.c_str());
 }
 
@@ -1746,7 +1749,7 @@ unsigned int op_arg_count(const char c)
 }
 
 
-int Calculate(const char *input, float* result)
+int Calculate(const char *input, double* result)
 {
   const char *strpos = input, *strend = input + strlen(input);
   char token[25];
@@ -1918,7 +1921,6 @@ typedef struct {
 tmElements_t tmx;
 
 uint32_t syncInterval = 3600;  // time sync will be attempted after this many seconds
-uint32_t sysTime = 0;
 uint32_t prevMillis = 0;
 uint32_t nextSyncTime = 0;
 
@@ -1981,66 +1983,47 @@ void setTime(unsigned long t) {
   Rtc.SetDateTime(dt);
 
   sysTime = (uint32_t)t;
-
+  RTC.syncCounter = 0;
+  saveToRTC();
+  lostPower = false;
 }
 
-// void setTime(unsigned long t) {
-//   sysTime = (uint32_t)t;
-//   nextSyncTime = (uint32_t)t + Settings.syncInterval;
-//   prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
-// }
-// unsigned long now() {
-  
-
-//   // calculate number of seconds passed since last call to now()
-//   while (millis() - prevMillis >= 1000) {
-//     // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
-//     sysTime++;
-//     prevMillis += 1000;
-//   }
-
-//   // Intervalo de SYNC
-//   if (!syncedClock() && (nextSyncTime <= sysTime)) {
-//     unsigned long  t = 0;
-//     String log;
-//     if (Settings.UseNTP) t = getNtpTime();
-//     if (Settings.htpEnable) t = getHtpTime();
-//     log = "NOW : secsSince1900: ";
-//     log += t;
-//     addLog(LOG_LEVEL_DEBUG, log);
-//     if (t != 0) {
-//       if (Settings.DST)
-//         t += SECS_PER_HOUR; // add one hour if DST active
-//       setTime(t);
-//     } else {
-//       nextSyncTime = sysTime + Settings.syncInterval;
-//     }
-//   }
-//   breakTime(sysTime, tm);
-//   return (unsigned long)sysTime;
-// }
-
 unsigned long now() {
-
+  String log;
   // Obtém data do RTC físico
   RtcDateTime now = Rtc.GetDateTime();
   sysTime = now.Epoch32Time();
 
+  // log = "SYSTIME: ";
+  // log += sysTime;
+  // addLog(LOG_LEVEL_DEBUG, log);
+
+  if (!syncedClock()) {
+    RTC.syncCounter++;
+    saveToRTC();
+  }
+
+  if (!syncedClock() && !haveInternet()){
+    
+    log = "NOW(): connecting...";
+    addLog(LOG_LEVEL_DEBUG, log);
+    WifiConnect(1);
+  }
+
   // No intervalo de SYNC ? Relógio está sincronizado ? Há internet ?
   if ((!syncedClock() || (nextSyncTime <= sysTime)) && haveInternet()&&(Settings.UseNTP || Settings.htpEnable)) {
     unsigned long  ntp = 0, htp = 0;
-    String log;
 
     if (Settings.htpEnable) {
       htp = getHtpTime();
-      log += "HTP time return : secsSince1900: ";
+      log = "HTP time return : ";
       log += htp;
       log += "\n";
     }
 
     if (Settings.UseNTP) {
       ntp = getNtpTime();
-      log = "NTP time return : secsSince1900: ";
+      log += "NTP time return : ";
       log += ntp;
       log += "\n";
     }
@@ -2050,9 +2033,11 @@ unsigned long now() {
     if (ntp != 0) {
       if (Settings.DST) ntp += SECS_PER_HOUR; // add one hour if DST active
       setTime(ntp);
+      lostPower = false;
     } else if (htp != 0){
       if (Settings.DST) htp += SECS_PER_HOUR; // add one hour if DST active
       setTime(htp);
+      lostPower = false;
     }
     nextSyncTime = sysTime + Settings.syncInterval;
   }
@@ -2779,7 +2764,7 @@ void play_rtttl(uint8_t _pin, char *p )
         note = 10;
         break;
       case 'b':
-        note = 12;
+        note = 12;syncedClock
         break;
       case 'p':
       default:
@@ -3076,6 +3061,10 @@ unsigned long getHtpTime(){
 }
 
 bool syncedClock(){
+  if (lostPower){
+    addLog(LOG_LEVEL_DEBUG, F("CLOCK : not synced - lost power"));
+    return false;
+  }
   if (sysTime > clockCompare) {
     return true;
   } else {
@@ -3098,7 +3087,6 @@ bool getGoogle(){
   char host[64] = "www.google.com";
   int port = 80;
   int connectionFailures = 0;
-  String log;
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
 
@@ -3117,7 +3105,7 @@ bool getGoogle(){
   request += F("User-Agent: iothink\r\nPragma: no-cache\r\nCache-Control: no-cache\r\n");
   request += F("Connection: close\r\n\r\n");
   client.print(request);
-  unsigned long timer = millis() + 500;
+  unsigned long timer = millis() + 1000;
   while (!client.available() && millis() < timer) yield();
   // Read all the lines of the reply from server and log them
   while (client.available()) {

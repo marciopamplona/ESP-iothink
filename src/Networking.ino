@@ -62,7 +62,6 @@ void checkUDP()
   int packetSize = portUDP.parsePacket();
   if (packetSize)
   {
-    statusLED(true);
 
     IPAddress remoteIP = portUDP.remoteIP();
     if (portUDP.remotePort() == 123)
@@ -304,7 +303,6 @@ void sendUDP(byte unit, byte* data, byte size)
   log += unit;
   addLog(LOG_LEVEL_DEBUG_MORE, log);
 
-  statusLED(true);
 
   IPAddress remoteNodeIP;
   if (unit == 255)
@@ -373,7 +371,6 @@ void sendSysInfoUDP(byte repeats)
     data[14] = Settings.Build >> 8;
     memcpy((byte*)data+15,Settings.Name,25);
     data[40] = NODE_TYPE_ID;
-    statusLED(true);
 
     IPAddress broadcastIP(255, 255, 255, 255);
     portUDP.beginPacket(broadcastIP, Settings.UDPPort);
@@ -575,7 +572,6 @@ void SSDP_send(byte method) {
     remotePort = SSDP_PORT;
   }
   _server->send(&remoteAddr, remotePort);
-  statusLED(true);
 }
 
 

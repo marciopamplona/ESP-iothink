@@ -62,7 +62,6 @@ boolean CPlugin_001(byte function, struct EventStruct *event, String& string)
             addLog(LOG_LEVEL_ERROR, F("HTTP : connection failed"));
             return false;
           }
-          statusLED(true);
           if (connectionFailures)
             connectionFailures--;
 

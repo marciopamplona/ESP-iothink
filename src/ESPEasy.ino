@@ -78,7 +78,7 @@
 //#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
 #define DEFAULT_SSID        "IO_think"          // Enter your network SSID
 #define DEFAULT_KEY         "19092017"            // Enter your network WPA key
-#define DEFAULT_DELAY       60                  // Enter your Send delay in seconds
+#define DEFAULT_DELAY       1                  // Enter your Send delay in seconds
 #define DEFAULT_AP_KEY      "configesp"         // Enter network WPA key for AP (config) mode
 
 #define DEFAULT_USE_STATIC_IP   false           // true or false enabled or disabled set static IP
@@ -89,8 +89,8 @@
 
 #define DEFAULT_CONTROLLER   false              // true or false enabled or disabled, set 1st controller defaults
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
-#define DEFAULT_PUB         "sensors/espeasy/%sysname%/%tskname%/%valname%" // Enter your pub
-#define DEFAULT_SUB         "sensors/espeasy/%sysname%/#" // Enter your sub
+#define DEFAULT_PUB         "/0000/000/%sysname%/%tskname%/%valname%" // Enter your pub
+#define DEFAULT_SUB         "/0000/000/%sysname%/write/#" // Enter your sub
 #define DEFAULT_SERVER      "192.168.0.8"       // Enter your Server IP address
 #define DEFAULT_PORT        8080                // Enter your Server port value
 
@@ -325,6 +325,7 @@ extern "C" {
 #include <RtcDS3231.h>
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 RtcDS3231<TwoWire> Rtc(Wire);
+boolean lostPower;
 
 #ifdef FEATURE_ARDUINO_OTA
 #include <ArduinoOTA.h>
@@ -604,9 +605,8 @@ struct RTCStruct
   unsigned long flashCounter;
   unsigned long bootCounter;
   unsigned long readCounter;
+  unsigned long syncCounter;
 } RTC;
-
-
 
 int deviceCount = -1;
 int protocolCount = -1;
@@ -616,7 +616,8 @@ boolean printToWeb = false;
 String printWebString = "";
 boolean printToWebJSON = false;
 
-float UserVar[VARS_PER_TASK * TASKS_MAX];
+// float UserVar[VARS_PER_TASK * TASKS_MAX];
+double UserVar[VARS_PER_TASK * TASKS_MAX];
 unsigned long RulesTimer[RULES_TIMER_MAX];
 
 unsigned long timerSensor[TASKS_MAX];
@@ -660,7 +661,6 @@ unsigned long elapsed = 0;
 unsigned long loopCounter = 0;
 unsigned long loopCounterLast = 0;
 unsigned long loopCounterMax = 1;
-
 unsigned long dailyResetCounter = 0;
 
 String eventBuffer = "";
@@ -673,6 +673,10 @@ String lowestRAMfunction = "";
 RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
 unsigned long clockCompare = compileTime.Epoch32Time(); // Friday, 13 de October de 2017 às 13:55:32
 //unsigned long clockCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
+uint32_t sysTime = 0;
+
+boolean TxData = false;
+boolean logData = true;
 
 /*********************************************************************************************\
  * SETUP
@@ -739,7 +743,8 @@ void setup()
 
   log += " - Reading Counter: ";
   log += RTC.readCounter;
-
+  log += " - Sync Counter: ";
+  log += RTC.syncCounter;
   addLog(LOG_LEVEL_INFO, log);
 
   fileSystemCheck();
@@ -775,7 +780,6 @@ void setup()
   if (Settings.Build != BUILD)
     BuildFixes();
 
-
   log = F("INIT : Free RAM:");
   log += FreeMem();
   addLog(LOG_LEVEL_INFO, log);
@@ -786,19 +790,20 @@ void setup()
   hardwareInit();
 
 /////////////////////////////////////// RTC CHECKS
-  //delay(10000);
+  //delay(5000);
 
   Rtc.Begin();
   
   RtcDateTime now = Rtc.GetDateTime();
 
-  log += F("\nDATE_TIME: ");
+  log = F("\nDATE_TIME: ");
   log += getDateTimeStringN(now);
 
   if (!Rtc.IsDateTimeValid()) 
   {
       log += " -> RTC lost confidence in the DateTime!";
-      Rtc.SetDateTime(compileTime);
+      //Rtc.SetDateTime(compileTime);
+      lostPower = true;
   }
     if (!Rtc.GetIsRunning())
   {
@@ -808,8 +813,9 @@ void setup()
   
   if (now < compileTime) 
   {
-      log += " -> RTC is older than compile time!  (Updating DateTime)";
-      Rtc.SetDateTime(compileTime);
+      log += " -> RTC is older than compile time!";
+      //Rtc.SetDateTime(compileTime);
+      lostPower = true;
   }
 
   Rtc.Enable32kHzPin(false);
@@ -855,9 +861,11 @@ void setup()
   //After booting, we want all the tasks to run without delaying more than neccesary.
   //Plugins that need an initial startup delay need to overwrite their initial timerSensor value in PLUGIN_INIT
   //They should also check if we returned from deep sleep so that they can skip the delay in that case.
-  for (byte x = 0; x < TASKS_MAX; x++)
-    if (Settings.TaskDeviceTimer[x] !=0)
+  for (byte x = 0; x < TASKS_MAX; x++){
+    if (Settings.TaskDeviceTimer[x] !=0) {
       timerSensor[x] = millis() + (x * Settings.MessageDelay);
+    }
+  }
 
   timer100ms = 0; // timer for periodic actions 10 x per/sec
   timer1s = 0; // timer for periodic actions once per/sec
@@ -867,36 +875,54 @@ void setup()
   CPluginInit();
   NPluginInit();
 
-  WebServerInit();
+  // Só loga e transmite se estiver sincronizado  //  COLOCAR NO SETUP, CHECA ANTES DE RODAR AS TASKS
+  // DESLIGA MQTT, E QUALQUER TENTATIVA DE TRANSMISSÃO
+  // 
+  if (RTC.syncCounter == 0){
+    // Verifica se pode transmitir, resultado é múltiplo do samplesPerTx
+    if ((RTC.readCounter % Settings.samplesPerTx)==0){
+      TxData = true;
+      logData = false;
+    } else {
+      TxData = true;
+      logData = false;
+    }
+  }
 
-  #ifdef FEATURE_ARDUINO_OTA
-  ArduinoOTAInit();
-  #endif
+  if (TxData){
+    // Inicia automaticamente a estação!
+    WifiConnect(1);
+    WebServerInit();
 
-  // setup UDP
-  if (Settings.UDPPort != 0)
-    portUDP.begin(Settings.UDPPort);
+    #ifdef FEATURE_ARDUINO_OTA
+    ArduinoOTAInit();
+    #endif
 
-  // Setup MQTT Client
-  byte ProtocolIndex = getProtocolIndex(Settings.Protocol[0]);
-  if (Protocol[ProtocolIndex].usesMQTT && Settings.ControllerEnabled[0])
-    MQTTConnect();
+    // setup UDP
+    if (Settings.UDPPort != 0)
+      portUDP.begin(Settings.UDPPort);
 
-  sendSysInfoUDP(3);
+    // Setup MQTT Client
+    byte ProtocolIndex = getProtocolIndex(Settings.Protocol[0]);
+    if (Protocol[ProtocolIndex].usesMQTT && Settings.ControllerEnabled[0])
+      MQTTConnect();
 
-  //if (Settings.UseNTP || Settings.htpEnable) initTime();
-  
+    sendSysInfoUDP(3);
+  }
+
+  WifiDisconnect();
   initTime();
 
 #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
 #endif
 
+  if (TxData){
   // Start DNS, only used if the ESP has no valid WiFi config
   // It will reply with it's own address on all DNS requests
   // (captive portal concept)
-  if (wifiSetup)
-    dnsServer.start(DNS_PORT, "*", apIP);
+    if (wifiSetup) dnsServer.start(DNS_PORT, "*", apIP);
+  }
 
   if (Settings.UseRules)
   {
@@ -906,7 +932,7 @@ void setup()
 
   writeDefaultCSS();
 
-  WifiDisconnect();
+
 }
 
 
@@ -917,15 +943,16 @@ void loop()
 {
   loopCounter++;
 
-  // if (wifiSetupConnect)
-  // {
-  //   // try to connect for setup wizard
-  //   WifiConnect(1);
-  //   wifiSetupConnect = false;
-  // }
+  if (wifiSetupConnect)
+  {
+    // try to connect for setup wizard
+    WifiConnect(1);
+    wifiSetupConnect = false;
+  }
 
   // Deep sleep mode, just run all tasks one time and go back to sleep as fast as possible
   if (isDeepSleepEnabled())
+  // if (0)
   {
       run50TimesPerSecond();
       run10TimesPerSecond();
@@ -964,7 +991,6 @@ void run50TimesPerSecond()
   timer20ms = millis() + 20;
   PluginCall(PLUGIN_FIFTY_PER_SECOND, 0, dummyString);
 
-  // statusLED(false);
 }
 
 /*********************************************************************************************\
@@ -1110,13 +1136,15 @@ void runEach30Seconds()
 \*********************************************************************************************/
 void checkSensors()
 {
+  String log;
   bool isDeepSleep = isDeepSleepEnabled();
   //check all the devices and only run the sendtask if its time, or we if we used deep sleep mode
   for (byte x = 0; x < TASKS_MAX; x++)
   {
     if (
         (Settings.TaskDeviceTimer[x] != 0) &&
-        (isDeepSleep || (millis() > timerSensor[x]))
+        (isDeepSleep || (millis() > timerSensor[x])) &&
+        (Settings.TaskDeviceEnabled[x])
     )
     {
       timerSensor[x] = millis() + Settings.TaskDeviceTimer[x] * 1000;
@@ -1127,17 +1155,14 @@ void checkSensors()
   }
   RTC.readCounter++;
 
-  // Verifica se pode transmitir, resultado é múltiplo do samplesPerTx
-  if ((RTC.readCounter % Settings.samplesPerTx)==0){
-    String log;
-    log = "Readcounter > samplesPerTx: ";
-    log += RTC.readCounter;
-    log += " / ";
-    log += Settings.samplesPerTx;
+  if (haveInternet()){
+    log = "TxData ->";
     addLog(LOG_LEVEL_DEBUG, log);
   } else {
-
+    log = "logData ->";
+    addLog(LOG_LEVEL_DEBUG, log);
   }
+
   saveUserVarToRTC();
 }
 
@@ -1173,7 +1198,7 @@ void SensorSendTask(byte TaskIndex)
     // TempEvent.idx = Settings.TaskDeviceID[TaskIndex]; todo check
     TempEvent.sensorType = Device[DeviceIndex].VType;
 
-    float preValue[VARS_PER_TASK]; // store values before change, in case we need it in the formula
+    double preValue[VARS_PER_TASK]; // store values before change, in case we need it in the formula
     for (byte varNr = 0; varNr < VARS_PER_TASK; varNr++)
       preValue[varNr] = UserVar[varIndex + varNr];
 
@@ -1190,8 +1215,8 @@ void SensorSendTask(byte TaskIndex)
         {
           String spreValue = String(preValue[varNr]);
           String formula = ExtraTaskSettings.TaskDeviceFormula[varNr];
-          float value = UserVar[varIndex + varNr];
-          float result = 0;
+          double value = UserVar[varIndex + varNr];
+          double result = 0;
           String svalue = String(value);
           formula.replace(F("%pvalue%"), spreValue);
           formula.replace(F("%value%"), svalue);
@@ -1307,23 +1332,22 @@ void backgroundtasks()
   }
   runningBackgroundTasks=true;
 
-  //tcpCleanup();
-
   if (Settings.UseSerial)
     if (Serial.available())
       if (!PluginCall(PLUGIN_SERIAL_IN, 0, dummyString))
         serial();
 
-  // process DNS, only used if the ESP has no valid WiFi config
-  if (wifiSetup) dnsServer.processNextRequest();
-
-  WebServer.handleClient();
-
-  if(Settings.ControllerEnabled[0])
-    MQTTclient.loop();
   
-  // Desabilitado
-  // checkUDP();
+  // process DNS, only used if the ESP has no valid WiFi config
+  
+  if (TxData){
+    if (wifiSetup) dnsServer.processNextRequest();
+
+    WebServer.handleClient();
+
+    if(Settings.ControllerEnabled[0])
+      MQTTclient.loop();
+  }    
 
   #ifdef FEATURE_ARDUINO_OTA 
   ArduinoOTA.handle();
@@ -1338,8 +1362,6 @@ void backgroundtasks()
   #endif
 
   yield();
-
-  statusLED(false);
 
   runningBackgroundTasks=false;
 }
