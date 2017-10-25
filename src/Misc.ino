@@ -1050,6 +1050,7 @@ void ResetFactory(void)
   }
   Settings.Build = BUILD;
   Settings.UseSerial = true;
+  Settings.samplesPerTx = 3;
   SaveSettings();
 
 #if DEFAULT_CONTROLLER
@@ -1148,7 +1149,7 @@ void addLog(byte loglevel, String& string)
 {
   String s(string);
   s = String("[")+String(millis())+String("] ") + s;
-  addLog(loglevel, string.c_str());
+  addLog(loglevel, s.c_str());
 }
 
 void addLog(byte logLevel, const __FlashStringHelper* flashString)
@@ -1922,7 +1923,7 @@ tmElements_t tmx;
 
 uint32_t syncInterval = 3600;  // time sync will be attempted after this many seconds
 uint32_t prevMillis = 0;
-uint32_t nextSyncTime = 0;
+//uint32_t nextSyncTime = 0;
 
 byte PrevMinutes = 0;
 
@@ -1993,6 +1994,7 @@ unsigned long now() {
   // Obtém data do RTC físico
   RtcDateTime now = Rtc.GetDateTime();
   sysTime = now.Epoch32Time();
+  sysTimeGMT = sysTime - (60UL * Settings.TimeZone);
 
   // log = "SYSTIME: ";
   // log += sysTime;
@@ -2011,7 +2013,9 @@ unsigned long now() {
   }
 
   // No intervalo de SYNC ? Relógio está sincronizado ? Há internet ?
-  if ((!syncedClock() || (nextSyncTime <= sysTime)) && haveInternet()&&(Settings.UseNTP || Settings.htpEnable)) {
+  if ((!syncedClock() || (RTC.nextSyncTime <= sysTime)) && 
+        haveInternet() &&
+       (Settings.UseNTP || Settings.htpEnable)) {
     unsigned long  ntp = 0, htp = 0;
 
     if (Settings.htpEnable) {
@@ -2039,7 +2043,8 @@ unsigned long now() {
       setTime(htp);
       lostPower = false;
     }
-    nextSyncTime = sysTime + Settings.syncInterval;
+    RTC.nextSyncTime = sysTime + Settings.syncInterval;
+    saveToRTC();
   }
   breakTime(sysTime, tm);
   return (unsigned long)sysTime;  
@@ -2083,8 +2088,7 @@ int weekday()
 
 void initTime()
 {
-  //nextSyncTime = 0;
-  if (Settings.UseNTP || Settings.htpEnable) nextSyncTime = Settings.syncInterval;
+  if (RTC.readCounter == 0){ RTC.nextSyncTime = 0; saveToRTC();}
   now();
 }
 
@@ -2997,9 +3001,9 @@ unsigned long getHtpTime(){
   // Use WiFiClient class to create TCP connections
   WiFiClient client;
 
-  if (!nextSyncTime){
-    addLog(LOG_LEVEL_ERROR, F("HTTP : first time sync"));
-  }
+  // if (!RTC.nextSyncTime){
+  //   addLog(LOG_LEVEL_ERROR, F("HTTP : first time sync"));
+  // }
 
   if (strcmp(Settings.htpHost, "") != 0){
     strcpy(host, Settings.htpHost);

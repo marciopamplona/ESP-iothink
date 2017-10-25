@@ -86,6 +86,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
         String pubname = ControllerSettings.Publish;
         pubname.replace(F("%sysname%"), Settings.Name);
         pubname.replace(F("%tskname%"), ExtraTaskSettings.TaskDeviceName);
+        pubname.replace(F("%systime%"), String(sysTimeGMT));
         pubname.replace(F("%id%"), String(event->idx));
 
         String value = "";

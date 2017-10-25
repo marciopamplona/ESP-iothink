@@ -605,7 +605,8 @@ struct RTCStruct
   unsigned long flashCounter;
   unsigned long bootCounter;
   unsigned long readCounter;
-  unsigned long syncCounter;
+  unsigned long syncCounter; // 16 + 7 bytes = 23 bytes
+  unsigned long nextSyncTime;
 } RTC;
 
 int deviceCount = -1;
@@ -674,6 +675,7 @@ RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
 unsigned long clockCompare = compileTime.Epoch32Time(); // Friday, 13 de October de 2017 às 13:55:32
 //unsigned long clockCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
 uint32_t sysTime = 0;
+uint32_t sysTimeGMT = 0;
 
 boolean TxData = false;
 boolean logData = true;
@@ -700,11 +702,9 @@ void setup()
 
   emergencyReset();
 
-  String log = F("\n\n\rINIT : Booting version: ");
+  String log = F("\n\n\n\rINIT : Booting version: ");
   log += BUILD_GIT;
   addLog(LOG_LEVEL_INFO, log);
-
-
 
   //warm boot
   if (readFromRTC())
@@ -749,7 +749,10 @@ void setup()
 
   fileSystemCheck();
   LoadSettings();
-  Settings.samplesPerTx = 3;
+  if (Settings.samplesPerTx == 0){
+    Settings.samplesPerTx = 3;
+    SaveSettings();
+  }
 
   if (strcasecmp(SecuritySettings.WifiSSID, "ssid") == 0)
     wifiSetup = true;
@@ -796,7 +799,7 @@ void setup()
   
   RtcDateTime now = Rtc.GetDateTime();
 
-  log = F("\nDATE_TIME: ");
+  log = F("DATE_TIME: ");
   log += getDateTimeStringN(now);
 
   if (!Rtc.IsDateTimeValid()) 
@@ -821,7 +824,7 @@ void setup()
   Rtc.Enable32kHzPin(false);
   Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone); 
 
-  log += "\nINTERNAL TEMP: ";
+  log += "  --  INTERNAL TEMP: ";
   log += Rtc.GetTemperature().AsFloat();
   log += "C";
 
@@ -874,6 +877,7 @@ void setup()
   PluginInit();
   CPluginInit();
   NPluginInit();
+  WifiDisconnect();
 
   // Só loga e transmite se estiver sincronizado  //  COLOCAR NO SETUP, CHECA ANTES DE RODAR AS TASKS
   // DESLIGA MQTT, E QUALQUER TENTATIVA DE TRANSMISSÃO
@@ -884,35 +888,30 @@ void setup()
       TxData = true;
       logData = false;
     } else {
-      TxData = true;
-      logData = false;
+      TxData = false;
+      logData = true;
     }
   }
 
   if (TxData){
     // Inicia automaticamente a estação!
-    WifiConnect(1);
+    WifiConnect(3);
     WebServerInit();
-
     #ifdef FEATURE_ARDUINO_OTA
     ArduinoOTAInit();
     #endif
 
     // setup UDP
-    if (Settings.UDPPort != 0)
-      portUDP.begin(Settings.UDPPort);
+    if (Settings.UDPPort != 0) portUDP.begin(Settings.UDPPort);
 
     // Setup MQTT Client
     byte ProtocolIndex = getProtocolIndex(Settings.Protocol[0]);
     if (Protocol[ProtocolIndex].usesMQTT && Settings.ControllerEnabled[0])
       MQTTConnect();
-
     sendSysInfoUDP(3);
   }
 
-  WifiDisconnect();
   initTime();
-
 #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
 #endif
@@ -943,21 +942,25 @@ void loop()
 {
   loopCounter++;
 
-  if (wifiSetupConnect)
-  {
-    // try to connect for setup wizard
-    WifiConnect(1);
-    wifiSetupConnect = false;
-  }
+  // if (wifiSetupConnect)
+  // {
+  //   // try to connect for setup wizard
+  //   WifiConnect(1);
+  //   wifiSetupConnect = false;
+  // }
 
   // Deep sleep mode, just run all tasks one time and go back to sleep as fast as possible
   if (isDeepSleepEnabled())
-  // if (0)
   {
       run50TimesPerSecond();
       run10TimesPerSecond();
       runEach30Seconds();
       runOncePerSecond();
+      
+      // Aguarda Configuração via MQTT
+      for (int i=0; i < 10; i++){
+        if(Settings.ControllerEnabled[0]) MQTTclient.loop();
+      }
       deepSleep(Settings.Delay);
       //deepsleep will never return, its a special kind of reboot
   }
@@ -977,6 +980,12 @@ void loop()
     if (millis() > timer1s)
       runOncePerSecond();
   }
+
+  loopCounterLast = loopCounter;
+  loopCounter = 0;
+  if (loopCounterLast > loopCounterMax)
+    loopCounterMax = loopCounterLast;
+
   backgroundtasks();
 
 }
@@ -989,7 +998,7 @@ void loop()
 void run50TimesPerSecond()
 {
   timer20ms = millis() + 20;
-  PluginCall(PLUGIN_FIFTY_PER_SECOND, 0, dummyString);
+  // PluginCall(PLUGIN_FIFTY_PER_SECOND, 0, dummyString);
 
 }
 
@@ -1000,12 +1009,12 @@ void run10TimesPerSecond()
 {
   start = micros();
   timer100ms = millis() + 100;
-  PluginCall(PLUGIN_TEN_PER_SECOND, 0, dummyString);
-  if (Settings.UseRules && eventBuffer.length() > 0)
-  {
-    rulesProcessing(eventBuffer);
-    eventBuffer = "";
-  }
+  // PluginCall(PLUGIN_TEN_PER_SECOND, 0, dummyString);
+  // if (Settings.UseRules && eventBuffer.length() > 0)
+  // {
+  //   rulesProcessing(eventBuffer);
+  //   eventBuffer = "";
+  // }
   elapsed = micros() - start;
 }
 
@@ -1102,31 +1111,31 @@ void runEach30Seconds()
 {
   wdcounter++;
   timerwd = millis() + 30000;
-  char str[60];
-  str[0] = 0;
-  sprintf_P(str, PSTR("Uptime %u ConnectFailures %u FreeMem %u"), wdcounter / 2, connectionFailures, FreeMem());
-  String log = F("WD   : ");
-  log += str;
-  addLog(LOG_LEVEL_INFO, log);
-  sendSysInfoUDP(1);
-  refreshNodeList();
-  if(Settings.ControllerEnabled[0])
-    MQTTCheck();
-  if (Settings.UseSSDP)
-    SSDP_update();
-#if FEATURE_ADC_VCC
-  vcc = ESP.getVcc() / 1000.0;
-#endif
-  loopCounterLast = loopCounter;
-  loopCounter = 0;
-  if (loopCounterLast > loopCounterMax)
-    loopCounterMax = loopCounterLast;
+  // char str[60];
+  // str[0] = 0;
+  // sprintf_P(str, PSTR("Uptime %u ConnectFailures %u FreeMem %u"), wdcounter / 2, connectionFailures, FreeMem());
+  // String log = F("WD   : ");
+  // log += str;
+  // addLog(LOG_LEVEL_INFO, log);
+  //sendSysInfoUDP(1);
+  //refreshNodeList();
+  
+  if (TxData){
+  
+    if(Settings.ControllerEnabled[0]) MQTTCheck();
 
-  //WifiCheck();
+    if (Settings.UseSSDP) SSDP_update();
+  }
+
+  #if FEATURE_ADC_VCC
+  vcc = ESP.getVcc() / 1000.0;
+  #endif
 
   #ifdef FEATURE_REPORTING
   ReportStatus();
   #endif
+
+  //WifiCheck();
 
 }
 
@@ -1345,8 +1354,10 @@ void backgroundtasks()
 
     WebServer.handleClient();
 
-    if(Settings.ControllerEnabled[0])
+    if(Settings.ControllerEnabled[0]) {
       MQTTclient.loop();
+      //addLog(LOG_LEVEL_DEBUG,"Call MQTT loop");
+    }
   }    
 
   #ifdef FEATURE_ARDUINO_OTA 

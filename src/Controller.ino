@@ -59,7 +59,7 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
   // char log[256];
   char c_payload[384];
 
-
+  
   if (length>sizeof(c_payload)-1)
   {
     addLog(LOG_LEVEL_ERROR, F("MQTT : Ignored too big message"));
@@ -78,11 +78,6 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
   log+=c_payload;
   addLog(LOG_LEVEL_DEBUG, log);
 
-  // sprintf_P(log, PSTR("%s%s"), "MQTT : Topic: ", c_topic);
-  // addLog(LOG_LEVEL_DEBUG, log);
-  // sprintf_P(log, PSTR("%s%s"), "MQTT : Payload: ", c_payload);
-  // addLog(LOG_LEVEL_DEBUG, log);
-
   struct EventStruct TempEvent;
   TempEvent.String1 = c_topic;
   TempEvent.String2 = c_payload;
@@ -94,31 +89,61 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
   String sTopic = c_topic;
   String sPayload = c_payload;
 
-  if (sTopic.endsWith("write")) {
+  if (sTopic.endsWith("write/config")) {
     
     StaticJsonBuffer<200> jsonBuffer;
     
     JsonObject& root = jsonBuffer.parseObject(sPayload.c_str());
     
-    String sleepDelay = root["sleepdelay"];
-    String sleepEnable = root["sleepenable"];
-    String sleepOnFail = root["sleeponfail"];
-    String timeSync = root["timesync"];
+    if (!root.success()){
+      log=F("OTA config : Invalid JSON");
+      addLog(LOG_LEVEL_DEBUG, log);
+      return ;
+    } else {
+      log=F("OTA config : ");
+      log+=String(sPayload);
+      addLog(LOG_LEVEL_DEBUG, log);
 
-    log=F("OTA config : ");
-    log+=String(sPayload);
-    addLog(LOG_LEVEL_DEBUG, log);
+      // Zera a mensagem retida no server
+      ControllerSettingsStruct ControllerSettings;
+      LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
+      String subscribed = ControllerSettings.Subscribe;
+      subscribed.replace(F("%sysname%"), Settings.Name);
+      subscribed.replace(F("/#"), "");
+      subscribed.trim();
+      subscribed += "/config";
+      log = "Reset retained message: ";
+      log += subscribed;
+      addLog(LOG_LEVEL_DEBUG, log);
+      MQTTclient.publish(subscribed.c_str(), "", true);
+      //////////////////////////////////
 
-    Settings.Delay = sleepDelay.toInt();
-    Settings.deepSleep = byte(sleepEnable.equalsIgnoreCase("on"));
-    Settings.deepSleepOnFail = sleepOnFail.equalsIgnoreCase("on");
-    if (!SaveSettings()){
-       log=F("OTA config : Fail saving to flash");
-       addLog(LOG_LEVEL_DEBUG, log);
-     }
+      if (root["sleepdelay"].success()){
+        Settings.Delay = (root.get<String>("sleepdelay")).toInt();
+      }
 
+      if (root["sleepenable"].success()){
+        Settings.deepSleep = (root.get<String>("sleepenable")).equalsIgnoreCase("on");
+      }
+
+      if (root["sleeponfail"].success()){
+        Settings.deepSleepOnFail = (root.get<String>("sleeponfail")).equalsIgnoreCase("on");
+      }
+
+      if (root["samplespertx"].success()){
+        Settings.samplesPerTx = (root.get<String>("samplespertx")).toInt();
+      }
+
+      if (root["syncinterval"].success()){
+        Settings.syncInterval = (root.get<String>("syncinterval")).toInt();
+      }
+
+      if (!SaveSettings()){
+        log=F("OTA config : Fail saving to flash");
+        addLog(LOG_LEVEL_DEBUG, log);
+      }
+    }
   }
-
 }
 
 
@@ -135,7 +160,7 @@ void MQTTConnect()
   MQTTclient.setCallback(callback);
 
   // MQTT needs a unique clientname to subscribe to broker
-  String clientid = "ESPClient";
+  String clientid = "Desto";
   clientid += Settings.Unit;
   String subscribeTo = "";
 
