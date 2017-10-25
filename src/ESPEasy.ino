@@ -118,13 +118,7 @@
 // #define FEATURE_ARDUINO_OTA
 
 //enable mDNS mode (adds about 6kb ram and some bytes IRAM)
-#define FEATURE_MDNS
-
-
-//enable reporting status to ESPEasy developers.
-//this informs us of crashes and stability issues.
-// not finished yet!
-// #define FEATURE_REPORTING
+//#define FEATURE_MDNS
 
 //Select which plugin sets you want to build.
 //These are normally automaticly set via the Platformio build environment.
@@ -857,10 +851,6 @@ void setup()
   // }
   // WifiConnect(0);
 
-  #ifdef FEATURE_REPORTING
-  ReportStatus();
-  #endif
-
   //After booting, we want all the tasks to run without delaying more than neccesary.
   //Plugins that need an initial startup delay need to overwrite their initial timerSensor value in PLUGIN_INIT
   //They should also check if we returned from deep sleep so that they can skip the delay in that case.
@@ -1129,10 +1119,6 @@ void runEach30Seconds()
 
   #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
-  #endif
-
-  #ifdef FEATURE_REPORTING
-  ReportStatus();
   #endif
 
   //WifiCheck();
