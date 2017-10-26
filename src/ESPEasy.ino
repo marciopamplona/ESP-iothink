@@ -836,7 +836,7 @@ void setup()
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
 
-  //WifiAPconfig();
+  WifiAPconfig();
 
   // Não sai conectando na Wifi
   /////////////////////////////
@@ -890,25 +890,24 @@ void setup()
       logData = true;
     }
   }
+  
+  if (!isDeepSleepEnabled()){
+    WebServerInit();
+    #ifdef FEATURE_ARDUINO_OTA
+      ArduinoOTAInit();
+    #endif
+  }
 
   if (TxData){
     // Inicia automaticamente a estação!
     WifiConnect(3);
-
-    if (!isDeepSleepEnabled()){
-      WebServerInit();
-      #ifdef FEATURE_ARDUINO_OTA
-        ArduinoOTAInit();
-      #endif
-    }
-    
+  
     // setup UDP
     if (Settings.UDPPort != 0) portUDP.begin(Settings.UDPPort);
 
     // Setup MQTT Client
     byte ProtocolIndex = getProtocolIndex(Settings.Protocol[0]);
-    if (Protocol[ProtocolIndex].usesMQTT && Settings.ControllerEnabled[0])
-      MQTTConnect();
+    if (Protocol[ProtocolIndex].usesMQTT && Settings.ControllerEnabled[0]) MQTTConnect();
     sendSysInfoUDP(3);
   }
 
@@ -1362,11 +1361,13 @@ void backgroundtasks()
   
   // process DNS, only used if the ESP has no valid WiFi config
   
+  if (!isDeepSleepEnabled()){
+    if (wifiSetup) dnsServer.processNextRequest();
+    WebServer.handleClient();
+  }
+  
   if (TxData){
-    if (!isDeepSleepEnabled()){
-      if (wifiSetup) dnsServer.processNextRequest();
-      WebServer.handleClient();
-    }
+
     if(Settings.ControllerEnabled[0]) {MQTTclient.loop();}
   }    
 

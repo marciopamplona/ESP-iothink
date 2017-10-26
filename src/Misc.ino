@@ -1033,7 +1033,7 @@ void ResetFactory(void)
   Settings.SerialLogLevel  = 2;
   Settings.WebLogLevel     = 2;
   Settings.BaudRate        = 115200;
-  Settings.MessageDelay = 1000;
+  Settings.MessageDelay = 0;
   Settings.deepSleep = false;
   Settings.CustomCSS = false;
   Settings.InitSPI = false;
@@ -1051,6 +1051,10 @@ void ResetFactory(void)
   Settings.Build = BUILD;
   Settings.UseSerial = true;
   Settings.samplesPerTx = 3;
+  Settings.htpEnable = true;
+  strcpy_P(Settings.htpHost, PSTR("www.google.com"));
+  Settings.syncInterval = 600;
+  Settings.TimeZone = -180;
   SaveSettings();
 
 #if DEFAULT_CONTROLLER
