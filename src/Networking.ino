@@ -188,8 +188,6 @@ void checkUDP()
                 {
                   UserVar[dataReply.destTaskIndex * VARS_PER_TASK + x] = dataReply.Values[x];
                 }
-                if (Settings.UseRules)
-                  createRuleEvents(dataReply.destTaskIndex);
               }
             }
             break;

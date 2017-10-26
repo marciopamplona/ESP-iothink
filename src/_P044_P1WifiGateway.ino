@@ -290,14 +290,6 @@ boolean Plugin_044(byte function, struct EventStruct *event, String& string)
                 addLog(LOG_LEVEL_DEBUG, F("P1   : data send!"));
                 blinkLED();
 
-                if (Settings.UseRules)
-                {
-                  LoadTaskSettings(event->TaskIndex);
-                  String eventString = ExtraTaskSettings.TaskDeviceName;
-                  eventString += F("#Data");
-                  rulesProcessing(eventString);
-                }
-
               } else {
                 addLog(LOG_LEVEL_DEBUG, F("P1   : Error: Invalid CRC, dropped data"));
               }

@@ -69,12 +69,8 @@ void WebServerInit()
   WebServer.on("/advanced", handle_advanced);
   WebServer.on("/setup", handle_setup);
   WebServer.on("/json", handle_json);
-  WebServer.on("/rules", handle_rules);
   WebServer.on("/sysinfo", handle_sysinfo);
   WebServer.on("/pinstates", handle_pinstates);
-
-  if (ESP.getFlashChipRealSize() > 524288)
-    httpUpdater.setup(&WebServer);
 
   if (Settings.UseSSDP)
   {
@@ -111,7 +107,6 @@ void sendWebPage(const String& tmplName, String& pageContent)
   pageTemplate = F("");
   pageContent = F("");
 }
-
 
 void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
 {
@@ -295,7 +290,7 @@ void getWebPageTemplateVar(const String& varName, String& varValue)
 
     for (byte i = 0; i < 8; i++)
     {
-      if (i == 5 && !Settings.UseRules)   //hide rules menu item
+      if (i == 5)   //hide rules menu item
         continue;
 
       varValue += F("<a class='menu");
@@ -1155,12 +1150,6 @@ void handle_hardware() {
   }
 
   reply += F("<form  method='post'><table><TR><TH>Hardware Settings<TH><TR><TD>");
-  addFormSubHeader(reply, F("Wifi Status LED"));
-
-  addFormPinSelect(reply, F("GPIO &rarr; LED"), "pled", Settings.Pin_status_led);
-  addFormCheckBox(reply, F("Inversed LED"), F("pledi"), Settings.Pin_status_led_Inversed);
-  addFormNote(reply, F("Use &rsquo;GPIO-2 (D4)&rsquo; with &rsquo;Inversed&rsquo; checked for onboard LED"));
-
   addFormSubHeader(reply, F("I2C Interface"));
 
   addFormPinSelectI2C(reply, F("GPIO &#8703; SDA"), F("psda"), Settings.Pin_i2c_sda);
@@ -2512,16 +2501,6 @@ void handle_tools() {
   reply += F("<TD>");
   reply += F("Saves a settings file");
 
-  if (ESP.getFlashChipRealSize() > 524288)
-  {
-    addFormSubHeader(reply, F("Firmware"));
-    reply += F("<TR><TD HEIGHT=\"30\">");
-    addButton(reply, F("update"), F("Load"));
-    addHelpButton(reply, F("EasyOTA"));
-    reply += F("<TD>");
-    reply += F("Load a new firmware");
-  }
-
   addFormSubHeader(reply, F("Filesystem"));
 
   reply += F("<TR><TD HEIGHT=\"30\">");
@@ -2987,7 +2966,6 @@ void handle_advanced() {
   String edit = WebServer.arg(F("edit"));
   String wireclockstretchlimit = WebServer.arg(F("wireclockstretchlimit"));
   String globalsync = WebServer.arg(F("globalsync"));
-  String userules = WebServer.arg(F("userules"));
   String cft = WebServer.arg(F("cft"));
   String MQTTRetainFlag = WebServer.arg(F("mqttretainflag"));
 
@@ -3023,7 +3001,6 @@ void handle_advanced() {
     Settings.WDI2CAddress = wdi2caddress.toInt();
     Settings.UseSSDP = (usessdp == "on");
     Settings.WireClockStretchLimit = wireclockstretchlimit.toInt();
-    Settings.UseRules = (userules == "on");
     Settings.GlobalSync = (globalsync == "on");
     Settings.ConnectionFailuresThreshold = cft.toInt();
     Settings.MQTTRetainFlag = (MQTTRetainFlag == "on");
@@ -3038,8 +3015,6 @@ void handle_advanced() {
   reply += F("<form  method='post'><table>");
 
   addFormHeader(reply, F("Advanced Settings"));
-
-  addFormCheckBox(reply, F("Rules"), F("userules"), Settings.UseRules);
 
   addFormSubHeader(reply, F("Controller Settings"));
 
@@ -3733,127 +3708,6 @@ void handle_setup() {
   delay(10);
 }
 
-
-//********************************************************************************
-// Web Interface rules page
-//********************************************************************************
-void handle_rules() {
-  if (!isLoggedIn()) return;
-  static byte currentSet = 1;
-
-  navMenuIndex = 5;
-  String set = WebServer.arg(F("set"));
-  byte rulesSet = 1;
-  if (set.length() > 0)
-  {
-    rulesSet = set.toInt();
-  }
-
-  String fileName = F("rules");
-  fileName += rulesSet;
-  fileName += F(".txt");
-
-  String reply = "";
-  checkRAM(F("handle_rules"));
-
-  addHeader(true, reply);
-
-  if (WebServer.args() > 0)
-  {
-    if (currentSet == rulesSet) // only save when the dropbox was not used to change set
-    {
-      String rules = WebServer.arg(F("rules"));
-      if (rules.length() > RULES_MAX_SIZE)
-        reply += F("<span style=\"color:red\">Data was not saved, exceeds web editor limit!</span>");
-      else
-      {
-
-        // if (RTC.flashDayCounter > MAX_FLASHWRITES_PER_DAY)
-        // {
-        //   String log = F("FS   : Daily flash write rate exceeded! (powercyle to reset this)");
-        //   addLog(LOG_LEVEL_ERROR, log);
-        //   reply += F("<span style=\"color:red\">Error saving to flash!</span>");
-        // }
-        // else
-        // {
-          fs::File f = SPIFFS.open(fileName, "w");
-          if (f)
-          {
-            f.print(rules);
-            f.close();
-            // flashCount();
-          }
-        // }
-      }
-    }
-    else // changed set, check if file exists and create new
-    {
-      if (!SPIFFS.exists(fileName))
-      {
-        fs::File f = SPIFFS.open(fileName, "w");
-        f.close();
-      }
-    }
-  }
-
-  if (rulesSet != currentSet)
-    currentSet = rulesSet;
-
-  reply += F("<form name = 'frmselect' method = 'post'><table><TR><TH>Rules");
-
-  byte choice = rulesSet;
-  String options[RULESETS_MAX];
-  int optionValues[RULESETS_MAX];
-  for (byte x = 0; x < RULESETS_MAX; x++)
-  {
-    options[x] = F("Rules Set ");
-    options[x] += x + 1;
-    optionValues[x] = x + 1;
-  }
-
-  reply += F("<TR><TD>Edit: ");
-  addSelector(reply, F("set"), RULESETS_MAX, options, optionValues, NULL, choice, true);
-  addHelpButton(reply, F("Tutorial_Rules"));
-
-  // load form data from flash
-
-  int size = 0;
-  fs::File f = SPIFFS.open(fileName, "r+");
-  if (f)
-  {
-    size = f.size();
-    if (size > RULES_MAX_SIZE)
-      reply += F("<span style=\"color:red\">Filesize exceeds web editor limit!</span>");
-    else
-    {
-      reply += F("<TR><TD><textarea name='rules' rows='15' cols='80' wrap='off'>");
-      while (f.available())
-      {
-        String c((char)f.read());
-        htmlEscape(c);
-        reply += c;
-      }
-      reply += F("</textarea>");
-    }
-    f.close();
-  }
-
-  reply += F("<TR><TD>Current size: ");
-  reply += size;
-  reply += F(" characters (Max ");
-  reply += RULES_MAX_SIZE;
-  reply += F(")");
-
-  addFormSeparator(reply);
-
-  reply += F("<TR><TD>");
-  addSubmitButton(reply);
-  reply += F("</table></form>");
-  addFooter(reply);
-  sendWebPage(F("TmplStd"), reply);
-}
-
-
 //********************************************************************************
 // Web Interface root page
 //********************************************************************************
@@ -3874,12 +3728,8 @@ void handle_sysinfo() {
   reply += F("<TR><TD>Unit:<TD>");
   reply += Settings.Unit;
 
-  //if (Settings.UseNTP || Settings.htpEnable)
-  //{
-
-    reply += F("<TR><TD>Local Time:<TD>");
-    reply += getDateTimeString('-', ':', ' ');
-  //}
+  reply += F("<TR><TD>Local Time:<TD>");
+  reply += getDateTimeString('-', ':', ' ');
 
   reply += F("<TR><TD>Uptime:<TD>");
   char strUpTime[40];

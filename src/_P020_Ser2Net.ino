@@ -221,48 +221,6 @@ boolean Plugin_020(byte function, struct EventStruct *event, String& string)
         sprintf_P(log, PSTR("Ser2N: S>: %s"), (char*)serial_buf);
         addLog(LOG_LEVEL_DEBUG, log);
 
-        // We can also use the rules engine for local control!
-        if (Settings.UseRules)
-        {
-          String message = (char*)serial_buf;
-          int NewLinePos = message.indexOf("\r\n");
-          if (NewLinePos > 0)
-            message = message.substring(0, NewLinePos);
-          String eventString = "";
-
-          switch (Plugin_020_SerialProcessing)
-          {
-            case 0:
-              {
-                break;
-              }
-
-            case 1: // Generic
-              {
-                eventString = F("!Serial#");
-                eventString += message;
-                break;
-              }
-
-            case 2: // RFLink
-              {
-                message = message.substring(6); // RFLink, strip 20;xx; from incoming message
-                if (message.startsWith("ESPEASY")) // Special treatment for gpio values, strip unneeded parts...
-                {
-                  message = message.substring(8); // Strip "ESPEASY;"
-                  eventString = F("RFLink#");
-                }
-                else
-                  eventString = F("!RFLink#"); // default event as it comes in, literal match needed in rules, using '!'
-                eventString += message;
-                break;
-              }
-          } // switch
-
-          if (eventString.length() > 0)
-            rulesProcessing(eventString);
-
-        } // if rules
         success = true;
         break;
       }

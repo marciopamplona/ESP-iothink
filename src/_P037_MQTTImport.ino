@@ -209,19 +209,6 @@ boolean Plugin_037(byte function, struct EventStruct *event, String& string)
             log += floatPayload;
             addLog(LOG_LEVEL_INFO, log);
 
-            // Generate event for rules processing - proposed by TridentTD
-
-            if (Settings.UseRules)
-            {
-              String RuleEvent = F("");
-              RuleEvent += ExtraTaskSettings.TaskDeviceName;
-              RuleEvent += F("#");
-              RuleEvent += ExtraTaskSettings.TaskDeviceValueNames[x];
-              RuleEvent += F("=");
-              RuleEvent += floatPayload;
-              rulesProcessing(RuleEvent);
-            }
-
             success = true;
           }
         }

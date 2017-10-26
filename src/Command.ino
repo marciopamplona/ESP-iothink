@@ -315,25 +315,6 @@ void ExecuteCommand(byte source, const char *Line)
     delayBackground(Par1);
   }
 
-  if (strcasecmp_P(Command, PSTR("Rules")) == 0)
-  {
-    success = true;
-    if (Par1 == 1)
-      Settings.UseRules = true;
-    else
-      Settings.UseRules = false;
-  }
-
-  if (strcasecmp_P(Command, PSTR("Event")) == 0)
-  {
-    success = true;
-    String event = Line;
-    event = event.substring(6);
-    event.replace("$", "#");
-    if (Settings.UseRules)
-      rulesProcessing(event);
-  }
-
   if (strcasecmp_P(Command, PSTR("SendTo")) == 0)
   {
     success = true;

@@ -1,38 +1,3 @@
-/****************************************************************************************************************************\
- * Arduino project "ESP Easy" © Copyright www.letscontrolit.com
- *
- * This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
- * as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
- * This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
- * of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
- * You received a copy of the GNU General Public License along with this program in file 'License.txt'.
- *
- * IDE download    : https://www.arduino.cc/en/Main/Software
- * ESP8266 Package : https://github.com/esp8266/Arduino
- *
- * Source Code     : https://github.com/ESP8266nu/ESPEasy
- * Support         : http://www.letscontrolit.com
- * Discussion      : http://www.letscontrolit.com/forum/
- *
- * Additional information about licensing can be found at : http://www.gnu.org/licenses
-\*************************************************************************************************************************/
-
-// This file incorporates work covered by the following copyright and permission notice:
-
-/****************************************************************************************************************************\
-* Arduino project "Nodo" © Copyright 2010..2015 Paul Tonkes
-*
-* This program is free software: you can redistribute it and/or modify it under the terms of the GNU General Public License
-* as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version.
-* This program is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty
-* of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the GNU General Public License for more details.
-* You received a copy of the GNU General Public License along with this program in file 'License.txt'.
-*
-* Voor toelichting op de licentievoorwaarden zie    : http://www.gnu.org/licenses
-* Uitgebreide documentatie is te vinden op          : http://www.nodo-domotica.nl
-* Compiler voor deze programmacode te downloaden op : http://arduino.cc
-\*************************************************************************************************************************/
-
 //   Simple Arduino sketch for ESP module, supporting:
 //   =================================================================================
 //   Simple switch inputs and direct GPIO output control to drive relais, mosfets, etc
@@ -110,7 +75,7 @@
 // Enable FEATURE_ADC_VCC to measure supply voltage using the analog pin
 // Please note that the TOUT pin has to be disconnected in this mode
 // Use the "System Info" device to read the VCC value
-#define FEATURE_ADC_VCC                  true
+#define FEATURE_ADC_VCC                  false
 
 // RTC stuff - Habilita DS3231, caso seja o DS1307, comentar a linha abaixo
 // #define DS3231
@@ -299,8 +264,6 @@
 #define FS_NO_GLOBALS
 #include <FS.h>
 #include <SD.h>
-#include <ESP8266HTTPUpdateServer.h>
-ESP8266HTTPUpdateServer httpUpdater(true);
 #include <base64.h>
 #if FEATURE_ADC_VCC
 ADC_MODE(ADC_VCC);
@@ -752,6 +715,7 @@ void setup()
 
   fileSystemCheck();
   LoadSettings();
+  Settings.UseRules = 0;
   if (Settings.samplesPerTx == 0){
     Settings.samplesPerTx = 3;
     SaveSettings();
@@ -923,15 +887,7 @@ void setup()
     if (wifiSetup) dnsServer.start(DNS_PORT, "*", apIP);
   }
 
-  if (Settings.UseRules)
-  {
-    String event = F("System#Boot");
-    rulesProcessing(event);
-  }
-
   writeDefaultCSS();
-
-
 }
 
 
@@ -1010,12 +966,7 @@ void run10TimesPerSecond()
 {
   start = micros();
   timer100ms = millis() + 100;
-  // PluginCall(PLUGIN_TEN_PER_SECOND, 0, dummyString);
-  // if (Settings.UseRules && eventBuffer.length() > 0)
-  // {
-  //   rulesProcessing(eventBuffer);
-  //   eventBuffer = "";
-  // }
+  PluginCall(PLUGIN_TEN_PER_SECOND, 0, dummyString);
   elapsed = micros() - start;
 }
 
@@ -1069,8 +1020,6 @@ void runOncePerSecond()
   PluginCall(PLUGIN_ONCE_A_SECOND, 0, dummyString);
 
   checkSystemTimers();
-
-  if (Settings.UseRules) rulesTimers();
 
   timer = micros() - timer;
 
@@ -1242,10 +1191,6 @@ void SensorSendTask(byte TaskIndex)
             UserVar[varIndex + varNr] = result;
         }
       }
-
-      String log = F("SensorSendTask  : ");
-      log += TempEvent.TaskIndex;
-      addLog(LOG_LEVEL_DEBUG, log);
       sendData(&TempEvent);
     }
   }
@@ -1365,7 +1310,7 @@ void backgroundtasks()
     if (wifiSetup) dnsServer.processNextRequest();
     WebServer.handleClient();
   }
-  
+
   if (TxData){
 
     if(Settings.ControllerEnabled[0]) {MQTTclient.loop();}

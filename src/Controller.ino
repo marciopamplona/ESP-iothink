@@ -4,8 +4,6 @@
 boolean sendData(struct EventStruct *event)
 {
   LoadTaskSettings(event->TaskIndex);
-  if (Settings.UseRules)
-    createRuleEvents(event->TaskIndex);
 
   if (Settings.GlobalSync && Settings.TaskDeviceGlobalSync[event->TaskIndex])
     SendUDPTaskData(0, event->TaskIndex, event->TaskIndex);

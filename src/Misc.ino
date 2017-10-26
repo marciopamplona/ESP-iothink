@@ -1055,6 +1055,7 @@ void ResetFactory(void)
   strcpy_P(Settings.htpHost, PSTR("www.google.com"));
   Settings.syncInterval = 600;
   Settings.TimeZone = -180;
+  Settings.UseRules = 0;
   SaveSettings();
 
 #if DEFAULT_CONTROLLER
@@ -2103,21 +2104,6 @@ void checkTime()
   {
     PluginCall(PLUGIN_CLOCK_IN, 0, dummyString);
     PrevMinutes = tm.Minute;
-    if (Settings.UseRules)
-    {
-      String weekDays = F("AllSunMonTueWedThuFriSat");
-      String event = F("Clock#Time=");
-      event += weekDays.substring(weekday() * 3, weekday() * 3 + 3);
-      event += ",";
-      if (hour() < 10)
-        event += "0";
-      event += hour();
-      event += ":";
-      if (minute() < 10)
-        event += "0";
-      event += minute();
-      rulesProcessing(event);
-    }
   }
 }
 
