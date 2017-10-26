@@ -1,0 +1,37 @@
+{
+    "name": "RTC", 
+    "repository": {
+        "url": "https://github.com/Makuna/Rtc.git", 
+        "type": "git"
+    }, 
+    "platforms": [
+        "atmelavr", 
+        "atmelsam", 
+        "espressif8266", 
+        "intel_arc32", 
+        "microchippic32", 
+        "nordicnrf51", 
+        "teensy", 
+        "timsp430"
+    ], 
+    "frameworks": [
+        "arduino"
+    ], 
+    "version": "2.0.2", 
+    "authors": [
+        {
+            "maintainer": false, 
+            "name": "Michael Miller", 
+            "url": "https://github.com/Makuna", 
+            "email": "Makuna@hotmail.com"
+        }
+    ], 
+    "keywords": [
+        "ds3231", 
+        "ds1307", 
+        "rtc", 
+        "clock"
+    ], 
+    "id": 274, 
+    "description": "A library that makes interfacing DS1307 and DS3231 Real Time Clock modules easy."
+}
