@@ -112,6 +112,8 @@
 // Use the "System Info" device to read the VCC value
 #define FEATURE_ADC_VCC                  true
 
+// RTC stuff - Habilita DS3231, caso seja o DS1307, comentar a linha abaixo
+// #define DS3231
 
 //enable Arduino OTA updating.
 //Note: This adds around 10kb to the firmware size, and 1kb extra ram.
@@ -316,10 +318,17 @@ extern "C" {
 #include "user_interface.h"
 }
 
-#include <RtcDS3231.h>
+// RTC stuff
 #define countof(a) (sizeof(a) / sizeof(a[0]))
-RtcDS3231<TwoWire> Rtc(Wire);
 boolean lostPower;
+#ifdef DS3231
+  #include <RtcDS3231.h>
+  RtcDS3231<TwoWire> Rtc(Wire);
+#else
+  #include <RtcDS1307.h>
+  RtcDS1307<TwoWire> Rtc(Wire);
+#endif
+
 
 #ifdef FEATURE_ARDUINO_OTA
 #include <ArduinoOTA.h>
@@ -787,7 +796,6 @@ void setup()
   hardwareInit();
 
 /////////////////////////////////////// RTC CHECKS
-  //delay(5000);
 
   Rtc.Begin();
   
@@ -815,12 +823,12 @@ void setup()
       lostPower = true;
   }
 
+  #ifdef DS3231
   Rtc.Enable32kHzPin(false);
-  Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone); 
-
-  log += "  --  INTERNAL TEMP: ";
+  Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);   log += "  --  INTERNAL TEMP: ";
   log += Rtc.GetTemperature().AsFloat();
   log += "C";
+  #endif
 
   addLog(LOG_LEVEL_INFO, log);
 

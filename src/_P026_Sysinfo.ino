@@ -124,7 +124,11 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
           }
           case 9:
           {
-            value = Rtc.GetTemperature().AsFloat();
+            #ifdef DS3231
+              value = Rtc.GetTemperature().AsFloat();
+            #else
+              value = 0;
+            #endif
             break;
           }
           case 10:
