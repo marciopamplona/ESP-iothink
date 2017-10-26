@@ -2009,7 +2009,7 @@ unsigned long now() {
     saveToRTC();
   }
 
-  if (!syncedClock() && !haveInternet()){
+  if (!syncedClock() && !haveInternet() && !WifiIsAP()){
     
     log = "NOW(): connecting...";
     addLog(LOG_LEVEL_DEBUG, log);
