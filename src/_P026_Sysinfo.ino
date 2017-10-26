@@ -134,13 +134,11 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
           }
         }
 
-        String log = F("SYS [");
-        log += sysTime;
-        log += ("] : ");
-        log += value;
-        // log += " - v: ";
-        // log += v;
-        addLog(LOG_LEVEL_INFO,log);
+        // String log = F("SYS [");
+        // log += sysTime;
+        // log += ("] : ");
+        // log += value;
+        // addLog(LOG_LEVEL_INFO,log);
 
         UserVar[event->BaseVarIndex] = value;
         success = true;

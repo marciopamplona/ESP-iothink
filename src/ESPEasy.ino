@@ -886,11 +886,14 @@ void setup()
   if (TxData){
     // Inicia automaticamente a estação!
     WifiConnect(3);
-    WebServerInit();
-    #ifdef FEATURE_ARDUINO_OTA
-    ArduinoOTAInit();
-    #endif
 
+    if (!isDeepSleepEnabled()){
+      WebServerInit();
+      #ifdef FEATURE_ARDUINO_OTA
+        ArduinoOTAInit();
+      #endif
+    }
+    
     // setup UDP
     if (Settings.UDPPort != 0) portUDP.begin(Settings.UDPPort);
 
@@ -906,7 +909,7 @@ void setup()
   vcc = ESP.getVcc() / 1000.0;
 #endif
 
-  if (TxData){
+  if (TxData && !isDeepSleepEnabled()){
   // Start DNS, only used if the ESP has no valid WiFi config
   // It will reply with it's own address on all DNS requests
   // (captive portal concept)
@@ -951,6 +954,7 @@ void loop()
       for (int i=0; i < 10; i++){
         if(Settings.ControllerEnabled[0]) MQTTclient.loop();
       }
+
       deepSleep(Settings.Delay);
       //deepsleep will never return, its a special kind of reboot
   }
@@ -1134,20 +1138,32 @@ void checkSensors()
   String log;
   bool isDeepSleep = isDeepSleepEnabled();
   //check all the devices and only run the sendtask if its time, or we if we used deep sleep mode
-  for (byte x = 0; x < TASKS_MAX; x++)
-  {
-    if (
-        (Settings.TaskDeviceTimer[x] != 0) &&
-        (isDeepSleep || (millis() > timerSensor[x])) &&
-        (Settings.TaskDeviceEnabled[x])
-    )
+
+  if (isDeepSleep){
+    for (byte x = 0; x < TASKS_MAX; x++){
+      if (Settings.TaskDeviceEnabled[x]){
+        SensorSendTask(x);
+      }
+    }
+  } else {
+  
+    for (byte x = 0; x < TASKS_MAX; x++)
     {
-      timerSensor[x] = millis() + Settings.TaskDeviceTimer[x] * 1000;
-      if (timerSensor[x] == 0) // small fix if result is 0, else timer will be stopped...
-        timerSensor[x] = 1;
-      SensorSendTask(x);
+      if (
+          (Settings.TaskDeviceTimer[x] != 0) &&
+          (millis() > timerSensor[x]) &&
+          (Settings.TaskDeviceEnabled[x])
+      )
+      {
+        timerSensor[x] = millis() + Settings.TaskDeviceTimer[x] * 1000;
+        if (timerSensor[x] == 0) // small fix if result is 0, else timer will be stopped...
+          timerSensor[x] = 1;
+        SensorSendTask(x);
+      }
     }
   }
+
+
   RTC.readCounter++;
 
   if (haveInternet()){
@@ -1194,8 +1210,7 @@ void SensorSendTask(byte TaskIndex)
     TempEvent.sensorType = Device[DeviceIndex].VType;
 
     double preValue[VARS_PER_TASK]; // store values before change, in case we need it in the formula
-    for (byte varNr = 0; varNr < VARS_PER_TASK; varNr++)
-      preValue[varNr] = UserVar[varIndex + varNr];
+    for (byte varNr = 0; varNr < VARS_PER_TASK; varNr++) preValue[varNr] = UserVar[varIndex + varNr];
 
     if(Settings.TaskDeviceDataFeed[TaskIndex] == 0)  // only read local connected sensorsfeeds
       success = PluginCall(PLUGIN_READ, &TempEvent, dummyString);
@@ -1220,6 +1235,10 @@ void SensorSendTask(byte TaskIndex)
             UserVar[varIndex + varNr] = result;
         }
       }
+
+      String log = F("SensorSendTask  : ");
+      log += TempEvent.TaskIndex;
+      addLog(LOG_LEVEL_DEBUG, log);
       sendData(&TempEvent);
     }
   }
@@ -1336,26 +1355,22 @@ void backgroundtasks()
   // process DNS, only used if the ESP has no valid WiFi config
   
   if (TxData){
-    if (wifiSetup) dnsServer.processNextRequest();
-
-    WebServer.handleClient();
-
-    if(Settings.ControllerEnabled[0]) {
-      MQTTclient.loop();
-      //addLog(LOG_LEVEL_DEBUG,"Call MQTT loop");
+    if (!isDeepSleepEnabled()){
+      if (wifiSetup) dnsServer.processNextRequest();
+      WebServer.handleClient();
     }
+    if(Settings.ControllerEnabled[0]) {MQTTclient.loop();}
   }    
 
   #ifdef FEATURE_ARDUINO_OTA 
-  ArduinoOTA.handle();
-
-  //once OTA is triggered, only handle that and dont do other stuff. (otherwise it fails)
-  while (ArduinoOTAtriggered)
-  {
-    yield();
     ArduinoOTA.handle();
-  }
 
+    //once OTA is triggered, only handle that and dont do other stuff. (otherwise it fails)
+    while (ArduinoOTAtriggered)
+    {
+      yield();
+      ArduinoOTA.handle();
+    }
   #endif
 
   yield();
