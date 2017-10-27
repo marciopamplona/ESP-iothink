@@ -1986,14 +1986,14 @@ void setTime(unsigned long t) {
     dt.InitWithEpoch32Time(t);
     Rtc.SetDateTime(dt);
     sysTime = (uint32_t)t;
-    RTC.syncCounter = 0;
-    saveToRTC();
-    lostPower = false;
   } else {
     sysTime = (uint32_t)t;
     //nextSyncTime = (uint32_t)t + Settings.syncInterval;
     prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
   }
+  RTC.syncCounter = 0;
+  saveToRTC();
+  lostPower = false;
 }
 
 unsigned long now() {
