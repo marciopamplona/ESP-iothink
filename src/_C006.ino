@@ -33,7 +33,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
     case CPLUGIN_PROTOCOL_TEMPLATE:
       {
         event->String1 = F("/Home/#");
-        event->String2 = F("/hooks/devices/%id%/SensorData/%valname%");
+        event->String2 = F("/hooks/devices/%id%/SensorData/%measure%");
         break;
       }
 
@@ -85,7 +85,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
 
         String pubname = ControllerSettings.Publish;
         pubname.replace(F("%devicename%"), Settings.Name);
-        pubname.replace(F("%tskname%"), ExtraTaskSettings.TaskDeviceName);
+        pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
         pubname.replace(F("%systime%"), String(sysTimeGMT));
         pubname.replace(F("%id%"), String(event->idx));
 
@@ -95,7 +95,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
         for (byte x = 0; x < valueCount; x++)
         {
           String tmppubname = pubname;
-          tmppubname.replace(F("%valname%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+          tmppubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
           if (event->sensorType == SENSOR_TYPE_LONG)
             value = (unsigned long)UserVar[event->BaseVarIndex] + ((unsigned long)UserVar[event->BaseVarIndex + 1] << 16);
           else

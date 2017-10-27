@@ -258,7 +258,7 @@ void DeleteNotNeededValues(String &s, byte numberOfValuesWanted)
 // Replace the token in a string by real value.
 //
 // Example:
-// %1%%vname1%____%tskname%____%val1%%/1%%2%%__%%vname2%____%tskname%____%val2%%/2%
+// %1%%vname1%____%sensortag%____%val1%%/1%%2%%__%%vname2%____%sensortag%____%val2%%/2%
 // will become in case of a sensor with 1 value:
 // SENSORVALUENAME1____TASKNAME1____VALUE1  <- everything not between %1% and %/1% will be discarded
 // in case of a sensor with 2 values:
@@ -268,7 +268,7 @@ void ReplaceTokenByValue(String& s, struct EventStruct *event)
 {
 // example string:
 // write?db=testdb&type=%1%%vname1%%/1%%2%;%vname2%%/2%%3%;%vname3%%/3%%4%;%vname4%%/4%&value=%1%%val1%%/1%%2%;%val2%%/2%%3%;%val3%%/3%%4%;%val4%%/4%
-//	%1%%vname1%,Standort=%tskname% Wert=%val1%%/1%%2%%LF%%vname2%,Standort=%tskname% Wert=%val2%%/2%%3%%LF%%vname3%,Standort=%tskname% Wert=%val3%%/3%%4%%LF%%vname4%,Standort=%tskname% Wert=%val4%%/4%
+//	%1%%vname1%,Standort=%sensortag% Wert=%val1%%/1%%2%%LF%%vname2%,Standort=%sensortag% Wert=%val2%%/2%%3%%LF%%vname3%,Standort=%sensortag% Wert=%val3%%/3%%4%%LF%%vname4%,Standort=%sensortag% Wert=%val4%%/4%
 	addLog(LOG_LEVEL_DEBUG_MORE, F("HTTP before parsing: "));
 	addLog(LOG_LEVEL_DEBUG_MORE, s);
 
@@ -325,7 +325,7 @@ void ReplaceTokenByValue(String& s, struct EventStruct *event)
   s.replace(F("%CR%"), F("\r"));
   s.replace(F("%LF%"), F("\n"));
   s.replace(F("%devicename%"), URLEncode(Settings.Name));
-  s.replace(F("%tskname%"), URLEncode(ExtraTaskSettings.TaskDeviceName));
+  s.replace(F("%sensortag%"), URLEncode(ExtraTaskSettings.TaskDeviceName));
   s.replace(F("%id%"), String(event->idx));
   s.replace(F("%vname1%"), URLEncode(ExtraTaskSettings.TaskDeviceValueNames[0]));
   s.replace(F("%vname2%"), URLEncode(ExtraTaskSettings.TaskDeviceValueNames[1]));

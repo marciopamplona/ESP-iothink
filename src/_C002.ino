@@ -247,7 +247,7 @@ boolean CPlugin_002(byte function, struct EventStruct *event, String& string)
 
           String pubname = ControllerSettings.Publish;
           pubname.replace(F("%devicename%"), Settings.Name);
-          pubname.replace(F("%tskname%"), ExtraTaskSettings.TaskDeviceName);
+          pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
           pubname.replace(F("%id%"), String(event->idx));
 
           if (!MQTTclient.publish(pubname.c_str(), json.c_str(), Settings.MQTTRetainFlag))

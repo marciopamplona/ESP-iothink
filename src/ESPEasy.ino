@@ -54,7 +54,7 @@
 
 #define DEFAULT_CONTROLLER   false              // true or false enabled or disabled, set 1st controller defaults
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
-#define DEFAULT_PUB         "/0000/000/%devicename%/%tskname%/%valname%" // Enter your pub
+#define DEFAULT_PUB         "/0000/000/%devicename%/%sensortag%/%measure%" // Enter your pub
 #define DEFAULT_SUB         "/0000/000/%devicename%/write/#" // Enter your sub
 #define DEFAULT_SERVER      "192.168.0.8"       // Enter your Server IP address
 #define DEFAULT_PORT        8080                // Enter your Server port value
@@ -99,7 +99,7 @@
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
 #define ESP_PROJECT_PID           20171019L
-#define VERSION                             3
+#define VERSION                             4
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
 
@@ -107,7 +107,7 @@
   #define BUILD_GIT "(custom)"
 #endif
 
-#define MAX_FLASHWRITES_PER_DAY           100 // per 24 hour window
+#define MAX_FLASHWRITES_PER_DAY          1000 // per 24 hour window
 
 #define NODE_TYPE_ID_ESP_EASY_STD           1
 #define NODE_TYPE_ID_ESP_EASYM_STD         17

@@ -34,7 +34,7 @@ boolean CPlugin_008(byte function, struct EventStruct *event, String& string)
     case CPLUGIN_PROTOCOL_TEMPLATE:
       {
         event->String1 = "";
-        event->String2 = F("demo.php?name=%devicename%&task=%tskname%&valuename=%valname%&value=%value%");
+        event->String2 = F("demo.php?name=%devicename%&task=%sensortag%&valuename=%measure%&value=%value%");
         break;
       }
 
@@ -110,9 +110,9 @@ boolean HTTPSend(struct EventStruct *event, byte varIndex, float value, unsigned
   url += ControllerSettings.Publish;
   //TODO: move this to a generic replacement function?
   url.replace(F("%devicename%"), URLEncode(Settings.Name));
-  url.replace(F("%tskname%"), URLEncode(ExtraTaskSettings.TaskDeviceName));
+  url.replace(F("%sensortag%"), URLEncode(ExtraTaskSettings.TaskDeviceName));
   url.replace(F("%id%"), String(event->idx));
-  url.replace(F("%valname%"), URLEncode(ExtraTaskSettings.TaskDeviceValueNames[varIndex]));
+  url.replace(F("%measure%"), URLEncode(ExtraTaskSettings.TaskDeviceValueNames[varIndex]));
   if (longValue)
     url.replace(F("%value%"), String(longValue));
   else
