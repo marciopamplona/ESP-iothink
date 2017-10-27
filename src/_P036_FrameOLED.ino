@@ -341,7 +341,7 @@ void display_time() {
 }
 
 void display_espname() {
-  String dtime = "%sysname%";
+  String dtime = "%devicename%";
   String newString = parseTemplate(dtime, 10);
   newString.trim();
   display->setTextAlignment(TEXT_ALIGN_CENTER);

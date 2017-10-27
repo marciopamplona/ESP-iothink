@@ -106,7 +106,7 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       ControllerSettingsStruct ControllerSettings;
       LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
       String subscribed = ControllerSettings.Subscribe;
-      subscribed.replace(F("%sysname%"), Settings.Name);
+      subscribed.replace(F("%devicename%"), Settings.Name);
       subscribed.replace(F("/#"), "");
       subscribed.trim();
       subscribed += "/config";
@@ -164,7 +164,7 @@ void MQTTConnect()
 
   String LWTTopic = ControllerSettings.Subscribe;
   LWTTopic.replace(F("/#"), F("/status"));
-  LWTTopic.replace(F("%sysname%"), Settings.Name);
+  LWTTopic.replace(F("%devicename%"), Settings.Name);
 
   for (byte x = 1; x < 3; x++)
   {
@@ -182,7 +182,7 @@ void MQTTConnect()
       log = F("MQTT : Connected to broker");
       addLog(LOG_LEVEL_INFO, log);
       subscribeTo = ControllerSettings.Subscribe;
-      subscribeTo.replace(F("%sysname%"), Settings.Name);
+      subscribeTo.replace(F("%devicename%"), Settings.Name);
       MQTTclient.subscribe(subscribeTo.c_str());
       log = F("Subscribed to: ");
       log += subscribeTo;
@@ -256,6 +256,6 @@ void MQTTStatus(String& status)
 
   String pubname = ControllerSettings.Subscribe;
   pubname.replace(F("/#"), F("/status"));
-  pubname.replace(F("%sysname%"), Settings.Name);
+  pubname.replace(F("%devicename%"), Settings.Name);
   MQTTclient.publish(pubname.c_str(), status.c_str(),Settings.MQTTRetainFlag);
 }

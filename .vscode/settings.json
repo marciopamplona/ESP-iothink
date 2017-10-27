@@ -6,6 +6,8 @@
         "hash_set": "cpp",
         "initializer_list": "cpp",
         "functional": "cpp",
-        "istream": "cpp"
+        "istream": "cpp",
+        "typeinfo": "cpp",
+        "*.tcc": "cpp"
     }
 }

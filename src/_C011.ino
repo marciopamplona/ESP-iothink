@@ -324,7 +324,7 @@ void ReplaceTokenByValue(String& s, struct EventStruct *event)
 
   s.replace(F("%CR%"), F("\r"));
   s.replace(F("%LF%"), F("\n"));
-  s.replace(F("%sysname%"), URLEncode(Settings.Name));
+  s.replace(F("%devicename%"), URLEncode(Settings.Name));
   s.replace(F("%tskname%"), URLEncode(ExtraTaskSettings.TaskDeviceName));
   s.replace(F("%id%"), String(event->idx));
   s.replace(F("%vname1%"), URLEncode(ExtraTaskSettings.TaskDeviceValueNames[0]));

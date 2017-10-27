@@ -54,8 +54,8 @@
 
 #define DEFAULT_CONTROLLER   false              // true or false enabled or disabled, set 1st controller defaults
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
-#define DEFAULT_PUB         "/0000/000/%sysname%/%tskname%/%valname%" // Enter your pub
-#define DEFAULT_SUB         "/0000/000/%sysname%/write/#" // Enter your sub
+#define DEFAULT_PUB         "/0000/000/%devicename%/%tskname%/%valname%" // Enter your pub
+#define DEFAULT_SUB         "/0000/000/%devicename%/write/#" // Enter your sub
 #define DEFAULT_SERVER      "192.168.0.8"       // Enter your Server IP address
 #define DEFAULT_PORT        8080                // Enter your Server port value
 
@@ -639,13 +639,11 @@ boolean logData = true;
 void setup()
 {
   lowestRAM = FreeMem();
-  delay(3000);
-  
+
   Serial.begin(115200);
-  // Serial.print("\n\n\nBOOOTTT\n\n\n");
+  Serial.print("\n\n\nBOOT\n\n\n");
 
   initLog();
-
 
   if (SpiffsSectors() < 32)
   {
@@ -675,6 +673,7 @@ void setup()
       log = F("INIT : Warm boot #");
       // Zera contador de leituras se não acordou do sleep
       RTC.readCounter = 0;
+      delay(3000); // Delay para debug 
     }
 
     log += RTC.bootCounter;
@@ -689,6 +688,7 @@ void setup()
     if (lastBootCause == BOOT_CAUSE_MANUAL_REBOOT) // only set this if not set earlier during boot stage.
       lastBootCause = BOOT_CAUSE_COLD_BOOT;
     log = F("INIT : Cold Boot");
+    delay(3000); // Delay para debug 
   }
 
 
@@ -808,27 +808,6 @@ void setup()
 
   WifiAPconfig();
 
-  // Não sai conectando na Wifi
-  /////////////////////////////
-
-  // if (Settings.deepSleep)
-  // {
-  //   //only one attempt in deepsleep, to conserve battery
-  //   if (!WifiConnect(1))
-  //   {
-  //       if (Settings.deepSleepOnFail)
-  //       {
-  //         addLog(LOG_LEVEL_ERROR, F("SLEEP: Connection failed, going back to sleep."));
-  //         deepSleep(Settings.Delay);
-  //       }
-  //   }
-  // }
-  // else {
-  //   // 3 connect attempts
-  //   WifiConnect(3);
-  // }
-  // WifiConnect(0);
-
   //After booting, we want all the tasks to run without delaying more than neccesary.
   //Plugins that need an initial startup delay need to overwrite their initial timerSensor value in PLUGIN_INIT
   //They should also check if we returned from deep sleep so that they can skip the delay in that case.
@@ -847,9 +826,7 @@ void setup()
   NPluginInit();
   WifiDisconnect();
 
-  // Só loga e transmite se estiver sincronizado  //  COLOCAR NO SETUP, CHECA ANTES DE RODAR AS TASKS
-  // DESLIGA MQTT, E QUALQUER TENTATIVA DE TRANSMISSÃO
-  // 
+  // Só loga e transmite se estiver sincronizado
   if (RTC.syncCounter == 0){
     // Verifica se pode transmitir, resultado é múltiplo do samplesPerTx
     if ((RTC.readCounter % Settings.samplesPerTx)==0){
@@ -1016,7 +993,6 @@ void runOncePerSecond()
   }
 
   // clock events
-  //if (Settings.UseNTP || Settings.htpEnable) checkTime();
   checkTime();
 
   unsigned long timer = micros();
@@ -1064,15 +1040,7 @@ void runEach30Seconds()
 {
   wdcounter++;
   timerwd = millis() + 30000;
-  // char str[60];
-  // str[0] = 0;
-  // sprintf_P(str, PSTR("Uptime %u ConnectFailures %u FreeMem %u"), wdcounter / 2, connectionFailures, FreeMem());
-  // String log = F("WD   : ");
-  // log += str;
-  // addLog(LOG_LEVEL_INFO, log);
-  //sendSysInfoUDP(1);
-  //refreshNodeList();
-  
+ 
   if (TxData){
   
     if(Settings.ControllerEnabled[0]) MQTTCheck();
@@ -1083,8 +1051,6 @@ void runEach30Seconds()
   #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
   #endif
-
-  //WifiCheck();
 
 }
 
@@ -1315,7 +1281,6 @@ void backgroundtasks()
   }
 
   if (TxData){
-
     if(Settings.ControllerEnabled[0]) {MQTTclient.loop();}
   }    
 

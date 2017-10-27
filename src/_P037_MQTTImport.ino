@@ -30,7 +30,7 @@ boolean Plugin_037(byte function, struct EventStruct *event, String& string)
   //
   // Generate the MQTT import client name from the system name and a suffix
   //
-  String tmpClientName = "%sysname%-Import";
+  String tmpClientName = "%devicename%-Import";
   String ClientName = parseTemplate(tmpClientName, 20);
 
   switch (function)

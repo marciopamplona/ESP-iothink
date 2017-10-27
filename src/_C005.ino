@@ -32,8 +32,8 @@ boolean CPlugin_005(byte function, struct EventStruct *event, String& string)
 
     case CPLUGIN_PROTOCOL_TEMPLATE:
       {
-        event->String1 = F("/%sysname%/#");
-        event->String2 = F("/%sysname%/%tskname%/%valname%");
+        event->String1 = F("/%devicename%/#");
+        event->String2 = F("/%devicename%/%tskname%/%valname%");
         break;
       }
 
@@ -91,7 +91,7 @@ boolean CPlugin_005(byte function, struct EventStruct *event, String& string)
           PluginCall(PLUGIN_GET_DEVICEVALUENAMES, event, dummyString);
 
         String pubname = ControllerSettings.Publish;
-        pubname.replace(F("%sysname%"), Settings.Name);
+        pubname.replace(F("%devicename%"), Settings.Name);
         pubname.replace(F("%tskname%"), ExtraTaskSettings.TaskDeviceName);
         pubname.replace(F("%id%"), String(event->idx));
 

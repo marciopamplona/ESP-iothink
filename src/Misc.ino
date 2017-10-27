@@ -708,10 +708,13 @@ String SaveSettings(void)
 {
   String err;
   err=SaveToFile((char*)"config.dat", 0, (byte*)&Settings, sizeof(struct SettingsStruct));
-  if (err.length())
-    return(err);
+  if (err.length()) return(err);
 
-  return(SaveToFile((char*)"security.dat", 0, (byte*)&SecuritySettings, sizeof(struct SecurityStruct)));
+  err=SaveToFile((char*)"security.dat", 0, (byte*)&SecuritySettings, sizeof(struct SecurityStruct));
+  if (err.length()) return(err);
+
+  LoadSettings();
+  return String();
 }
 
 
@@ -1592,8 +1595,8 @@ String parseTemplate(String &tmpString, byte lineSize)
     LoadTaskSettings(currentTaskIndex);
   }
 
-  // replace other system variables like %sysname%, %systime%, %ip%
-  newString.replace(F("%sysname%"), Settings.Name);
+  // replace other system variables like %devicename%, %systime%, %ip%
+  newString.replace(F("%devicename%"), Settings.Name);
 
   newString.replace(F("%systime%"), getTimeString(':'));
 

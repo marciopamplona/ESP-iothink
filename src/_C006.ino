@@ -84,7 +84,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
           PluginCall(PLUGIN_GET_DEVICEVALUENAMES, event, dummyString);
 
         String pubname = ControllerSettings.Publish;
-        pubname.replace(F("%sysname%"), Settings.Name);
+        pubname.replace(F("%devicename%"), Settings.Name);
         pubname.replace(F("%tskname%"), ExtraTaskSettings.TaskDeviceName);
         pubname.replace(F("%systime%"), String(sysTimeGMT));
         pubname.replace(F("%id%"), String(event->idx));
