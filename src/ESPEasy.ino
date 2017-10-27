@@ -77,13 +77,6 @@
 // Use the "System Info" device to read the VCC value
 #define FEATURE_ADC_VCC                  false
 
-// RTC stuff - Habilita DS3231, caso seja o DS1307, comentar a linha abaixo
-// #define DS3231
-
-//enable Arduino OTA updating.
-//Note: This adds around 10kb to the firmware size, and 1kb extra ram.
-// #define FEATURE_ARDUINO_OTA
-
 //enable mDNS mode (adds about 6kb ram and some bytes IRAM)
 //#define FEATURE_MDNS
 
@@ -284,21 +277,15 @@ extern "C" {
 // RTC stuff
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 boolean lostPower;
-#ifdef DS3231
-  #include <RtcDS3231.h>
-  RtcDS3231<TwoWire> Rtc(Wire);
-#else
-  #include <RtcDS1307.h>
-  RtcDS1307<TwoWire> Rtc(Wire);
-#endif
-
-
-#ifdef FEATURE_ARDUINO_OTA
-#include <ArduinoOTA.h>
-#include <ESP8266mDNS.h>
-bool ArduinoOTAtriggered=false;
-#endif
-
+//#ifdef DS3231
+#include <RtcDS3231.h>
+//  RtcDS3231<TwoWire> Rtc(Wire);
+//#else
+#include <RtcDS1307.h>
+//  RtcDS1307<TwoWire> Rtc(Wire);
+//#endif
+int RtcHardware = 0;
+RtcDS3231<TwoWire> Rtc(Wire);
 
 // Setup DNS, only used if the ESP has no valid WiFi config
 const byte DNS_PORT = 53;
@@ -652,7 +639,8 @@ boolean logData = true;
 void setup()
 {
   lowestRAM = FreeMem();
-
+  delay(3000);
+  
   Serial.begin(115200);
   // Serial.print("\n\n\nBOOOTTT\n\n\n");
 
@@ -760,42 +748,60 @@ void setup()
   hardwareInit();
 
 /////////////////////////////////////// RTC CHECKS
-
-  Rtc.Begin();
+  log = F("INIT: reg 0x7, dev 0x68: ");
+  log += readI2Cregister(7, DS1307_ADDRESS);
+  addLog(LOG_LEVEL_DEBUG, log);
   
-  RtcDateTime now = Rtc.GetDateTime();
-
-  log = F("DATE_TIME: ");
-  log += getDateTimeStringN(now);
-
-  if (!Rtc.IsDateTimeValid()) 
-  {
-      log += " -> RTC lost confidence in the DateTime!";
-      //Rtc.SetDateTime(compileTime);
-      lostPower = true;
+  if (checkI2Cpresence(DS3231_ADDRESS)&&(readI2Cregister(7, DS3231_ADDRESS)==0)){
+    log = F("INIT: DS3231 detected");
+    RtcHardware = 3231;
+  } else if (checkI2Cpresence(DS1307_ADDRESS)){
+    log = F("INIT: DS1307 detected");
+    RtcDS1307<TwoWire> Rtc(Wire);
+    RtcHardware = 1307;
+  } else {
+    log = F("INIT: no physical RTC detected");
   }
-    if (!Rtc.GetIsRunning())
-  {
-      log += " -> RTC was not actively running, starting now";
-      Rtc.SetIsRunning(true);
-  }
-  
-  if (now < compileTime) 
-  {
-      log += " -> RTC is older than compile time!";
-      //Rtc.SetDateTime(compileTime);
-      lostPower = true;
-  }
-
-  #ifdef DS3231
-  Rtc.Enable32kHzPin(false);
-  Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);   log += "  --  INTERNAL TEMP: ";
-  log += Rtc.GetTemperature().AsFloat();
-  log += "C";
-  #endif
 
   addLog(LOG_LEVEL_INFO, log);
 
+  if (RtcHardware) {
+
+    Rtc.Begin();
+    
+    RtcDateTime now = Rtc.GetDateTime();
+
+    log = F("DATE_TIME: ");
+    log += getDateTimeStringN(now);
+
+    if (!Rtc.IsDateTimeValid()) 
+    {
+        log += " -> RTC lost confidence in the DateTime!";
+        //Rtc.SetDateTime(compileTime);
+        lostPower = true;
+    }
+      if (!Rtc.GetIsRunning())
+    {
+        log += " -> RTC was not actively running, starting now";
+        Rtc.SetIsRunning(true);
+    }
+    
+    if (now < compileTime) 
+    {
+        log += " -> RTC is older than compile time!";
+        //Rtc.SetDateTime(compileTime);
+        lostPower = true;
+    }
+
+    if (RtcHardware == 3231){
+      Rtc.Enable32kHzPin(false);
+      Rtc.SetSquareWavePin(DS3231SquareWavePin_ModeNone);   log += "  --  INTERNAL TEMP: ";
+      log += Rtc.GetTemperature().AsFloat();
+      log += "C";
+    }
+
+    addLog(LOG_LEVEL_INFO, log);
+  }
 //////////////////////////////////////////////
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
@@ -857,9 +863,6 @@ void setup()
   
   if (!isDeepSleepEnabled()){
     WebServerInit();
-    #ifdef FEATURE_ARDUINO_OTA
-      ArduinoOTAInit();
-    #endif
   }
 
   if (TxData){
@@ -1315,17 +1318,6 @@ void backgroundtasks()
 
     if(Settings.ControllerEnabled[0]) {MQTTclient.loop();}
   }    
-
-  #ifdef FEATURE_ARDUINO_OTA 
-    ArduinoOTA.handle();
-
-    //once OTA is triggered, only handle that and dont do other stuff. (otherwise it fails)
-    while (ArduinoOTAtriggered)
-    {
-      yield();
-      ArduinoOTA.handle();
-    }
-  #endif
 
   yield();
 

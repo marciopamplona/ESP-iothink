@@ -72,17 +72,6 @@ void ExecuteCommand(byte source, const char *Line)
     Serial.println("end");
   }
 
-  if (strcasecmp_P(Command, PSTR("executeRules")) == 0)
-  {
-    success = true;
-    if (GetArgv(Line, TmpStr1, 2))
-    {
-      String fileName = TmpStr1;
-      String event = "";
-      rulesProcessingFile(fileName, event);
-    }
-  }
-
   if (strcasecmp_P(Command, PSTR("clearRTCRAM")) == 0)
   {
     success = true;

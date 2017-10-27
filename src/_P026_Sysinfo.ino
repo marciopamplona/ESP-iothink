@@ -124,11 +124,11 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
           }
           case 9:
           {
-            #ifdef DS3231
+            if (RtcHardware == 3231){
               value = Rtc.GetTemperature().AsFloat();
-            #else
+            } else {
               value = 0;
-            #endif
+            }
             break;
           }
           case 10:

@@ -56,11 +56,6 @@ void deepSleep(int delay)
 
 void deepSleepStart(int delay)
 {
-  // separate function that is called from above function or directly from rules, usign deepSleep as a one-shot
-  String event = F("System#Sleep");
-  rulesProcessing(event);
-
-
   RTC.deepSleepState = 1;
   saveToRTC();
 
@@ -1983,27 +1978,38 @@ void breakTime(unsigned long timeInput, struct timeStruct &tm) {
 }
 
 void setTime(unsigned long t) {
-  RtcDateTime dt;
-  dt.InitWithEpoch32Time(t);
-
-  Rtc.SetDateTime(dt);
-
-  sysTime = (uint32_t)t;
-  RTC.syncCounter = 0;
-  saveToRTC();
-  lostPower = false;
+  if (RtcHardware){
+    RtcDateTime dt;
+    dt.InitWithEpoch32Time(t);
+    Rtc.SetDateTime(dt);
+    sysTime = (uint32_t)t;
+    RTC.syncCounter = 0;
+    saveToRTC();
+    lostPower = false;
+  } else {
+    sysTime = (uint32_t)t;
+    //nextSyncTime = (uint32_t)t + Settings.syncInterval;
+    prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
+  }
 }
 
 unsigned long now() {
   String log;
-  // Obtém data do RTC físico
-  RtcDateTime now = Rtc.GetDateTime();
-  sysTime = now.Epoch32Time();
-  sysTimeGMT = sysTime - (60UL * Settings.TimeZone);
 
-  // log = "SYSTIME: ";
-  // log += sysTime;
-  // addLog(LOG_LEVEL_DEBUG, log);
+  if (RtcHardware){
+    // Obtém data do RTC físico
+    RtcDateTime now = Rtc.GetDateTime();
+    sysTime = now.Epoch32Time();
+  } else {
+    // calculate number of seconds passed since last call to now()
+    while (millis() - prevMillis >= 1000) {
+      // millis() and prevMillis are both unsigned ints thus the subtraction will always be the absolute value of the difference
+      sysTime++;
+      prevMillis += 1000;
+    }
+  }
+
+  sysTimeGMT = sysTime - (60UL * Settings.TimeZone);
 
   if (!syncedClock()) {
     RTC.syncCounter++;
@@ -2021,13 +2027,11 @@ unsigned long now() {
   if ((!syncedClock() || (RTC.nextSyncTime <= sysTime)) && 
         haveInternet() &&
        (Settings.UseNTP || Settings.htpEnable)) {
+    
     unsigned long  ntp = 0, htp = 0;
 
     if (Settings.htpEnable) {
       htp = getHtpTime();
-      log = "HTP time return : ";
-      log += htp;
-      log += "\n";
     }
 
     if (Settings.UseNTP) {
@@ -2174,419 +2178,6 @@ unsigned long getNtpTime()
 }
 
 
-/********************************************************************************************\
-  Rules processing
-  \*********************************************************************************************/
-void rulesProcessing(String& event)
-{
-  unsigned long timer = millis();
-  String log = "";
-
-  log = F("EVENT: ");
-  log += event;
-  addLog(LOG_LEVEL_INFO, log);
-
-  for (byte x = 1; x < RULESETS_MAX + 1; x++)
-  {
-    String fileName = F("rules");
-    fileName += x;
-    fileName += F(".txt");
-    if (SPIFFS.exists(fileName))
-      rulesProcessingFile(fileName, event);
-  }
-
-  log = F("EVENT: Processing time:");
-  log += millis() - timer;
-  log += F(" milliSeconds");
-  addLog(LOG_LEVEL_DEBUG, log);
-
-}
-
-/********************************************************************************************\
-  Rules processing
-  \*********************************************************************************************/
-void rulesProcessingFile(String fileName, String& event)
-{
-  fs::File f = SPIFFS.open(fileName, "r+");
-  if (!f)
-    return;
-
-  static byte nestingLevel;
-  char data = 0;
-  String log = "";
-
-  nestingLevel++;
-  if (nestingLevel > RULES_MAX_NESTING_LEVEL)
-  {
-    log = F("EVENT: Error: Nesting level exceeded!");
-    addLog(LOG_LEVEL_ERROR, log);
-    nestingLevel--;
-    return;
-  }
-
-
-  int pos = 0;
-  String line = "";
-  boolean match = false;
-  boolean codeBlock = false;
-  boolean isCommand = false;
-  boolean conditional = false;
-  boolean condition = false;
-  boolean ifBranche = false;
-
-  while (f.available())
-  {
-    data = f.read();
-    if (data != 10)
-      line += data;
-
-    if (data == 10)    // if line complete, parse this rule
-    {
-      line.replace("\r", "");
-      if (line.substring(0, 2) != "//" && line.length() > 0)
-      {
-        isCommand = true;
-
-        int comment = line.indexOf("//");
-        if (comment > 0)
-          line = line.substring(0, comment);
-
-        line = parseTemplate(line, line.length());
-        line.trim();
-
-        String lineOrg = line; // store original line for future use
-        line.toLowerCase(); // convert all to lower case to make checks easier
-
-        String eventTrigger = "";
-        String action = "";
-
-        if (!codeBlock)  // do not check "on" rules if a block of actions is to be processed
-        {
-          if (line.startsWith("on "))
-          {
-            line = line.substring(3);
-            int split = line.indexOf(" do");
-            if (split != -1)
-            {
-              eventTrigger = line.substring(0, split);
-              action = lineOrg.substring(split + 7);
-              action.trim();
-            }
-            if (eventTrigger == "*") // wildcard, always process
-              match = true;
-            else
-              match = ruleMatch(event, eventTrigger);
-            if (action.length() > 0) // single on/do/action line, no block
-            {
-              isCommand = true;
-              codeBlock = false;
-            }
-            else
-            {
-              isCommand = false;
-              codeBlock = true;
-            }
-          }
-        }
-        else
-        {
-          action = lineOrg;
-        }
-
-        String lcAction = action;
-        lcAction.toLowerCase();
-        if (lcAction == "endon") // Check if action block has ended, then we will wait for a new "on" rule
-        {
-          isCommand = false;
-          codeBlock = false;
-        }
-
-        if (match) // rule matched for one action or a block of actions
-        {
-          int split = lcAction.indexOf("if "); // check for optional "if" condition
-          if (split != -1)
-          {
-            conditional = true;
-            String check = lcAction.substring(split + 3);
-            condition = conditionMatch(check);
-            ifBranche = true;
-            isCommand = false;
-          }
-
-          if (lcAction == "else") // in case of an "else" block of actions, set ifBranche to false
-          {
-            ifBranche = false;
-            isCommand = false;
-          }
-
-          if (lcAction == "endif") // conditional block ends here
-          {
-            conditional = false;
-            isCommand = false;
-          }
-
-          // process the action if it's a command and unconditional, or conditional and the condition matches the if or else block.
-          if (isCommand && ((!conditional) || (conditional && (condition == ifBranche))))
-          {
-            int equalsPos = event.indexOf("=");
-            if (equalsPos > 0)
-            {
-              String tmpString = event.substring(equalsPos + 1);
-              action.replace(F("%eventvalue%"), tmpString); // substitute %eventvalue% in actions with the actual value from the event
-            }
-            log = F("ACT  : ");
-            log += action;
-            addLog(LOG_LEVEL_INFO, log);
-
-            struct EventStruct TempEvent;
-            parseCommandString(&TempEvent, action);
-            yield();
-            if (!PluginCall(PLUGIN_WRITE, &TempEvent, action))
-              ExecuteCommand(VALUE_SOURCE_SYSTEM, action.c_str());
-            yield();
-          }
-        }
-      }
-
-      line = "";
-    }
-    //pos++;
-  }
-
-  nestingLevel--;
-
-}
-
-
-/********************************************************************************************\
-  Check if an event matches to a given rule
-  \*********************************************************************************************/
-boolean ruleMatch(String& event, String& rule)
-{
-  boolean match = false;
-  String tmpEvent = event;
-  String tmpRule = rule;
-
-  // Special handling of literal string events, they should start with '!'
-  if (event.charAt(0) == '!')
-  {
-    int pos = rule.indexOf('#');
-    if (pos == -1) // no # sign in rule, use 'wildcard' match...
-      tmpEvent = event.substring(0,rule.length());
-
-    if (tmpEvent.equalsIgnoreCase(rule))
-      return true;
-    else
-      return false;
-  }
-
-  if (event.startsWith("Clock#Time")) // clock events need different handling...
-  {
-    int pos1 = event.indexOf("=");
-    int pos2 = rule.indexOf("=");
-    if (pos1 > 0 && pos2 > 0)
-    {
-      tmpEvent = event.substring(0, pos1);
-      tmpRule  = rule.substring(0, pos2);
-      if (tmpRule.equalsIgnoreCase(tmpEvent)) // if this is a clock rule
-      {
-        tmpEvent = event.substring(pos1 + 1);
-        tmpRule  = rule.substring(pos2 + 1);
-        unsigned long clockEvent = string2TimeLong(tmpEvent);
-        unsigned long clockSet = string2TimeLong(tmpRule);
-        if (matchClockEvent(clockEvent, clockSet))
-          return true;
-        else
-          return false;
-      }
-    }
-  }
-
-
-  // parse event into verb and value
-  float value = 0;
-  int pos = event.indexOf("=");
-  if (pos)
-  {
-    tmpEvent = event.substring(pos + 1);
-    value = tmpEvent.toFloat();
-    tmpEvent = event.substring(0, pos);
-  }
-
-  // parse rule
-  int comparePos = 0;
-  char compare = ' ';
-  comparePos = rule.indexOf(">");
-  if (comparePos > 0)
-  {
-    compare = '>';
-  }
-  else
-  {
-    comparePos = rule.indexOf("<");
-    if (comparePos > 0)
-    {
-      compare = '<';
-    }
-    else
-    {
-      comparePos = rule.indexOf("=");
-      if (comparePos > 0)
-      {
-        compare = '=';
-      }
-    }
-  }
-
-  float ruleValue = 0;
-
-  if (comparePos > 0)
-  {
-    tmpRule = rule.substring(comparePos + 1);
-    ruleValue = tmpRule.toFloat();
-    tmpRule = rule.substring(0, comparePos);
-  }
-
-  switch (compare)
-  {
-    case '>':
-      if (tmpRule.equalsIgnoreCase(tmpEvent) && value > ruleValue)
-        match = true;
-      break;
-
-    case '<':
-      if (tmpRule.equalsIgnoreCase(tmpEvent) && value < ruleValue)
-        match = true;
-      break;
-
-    case '=':
-      if (tmpRule.equalsIgnoreCase(tmpEvent) && value == ruleValue)
-        match = true;
-      break;
-
-    case ' ':
-      if (tmpRule.equalsIgnoreCase(tmpEvent))
-        match = true;
-      break;
-  }
-
-  return match;
-}
-
-
-/********************************************************************************************\
-  Check expression
-  \*********************************************************************************************/
-boolean conditionMatch(String& check)
-{
-  boolean match = false;
-
-  int comparePos = 0;
-  char compare = ' ';
-  comparePos = check.indexOf(">");
-  if (comparePos > 0)
-  {
-    compare = '>';
-  }
-  else
-  {
-    comparePos = check.indexOf("<");
-    if (comparePos > 0)
-    {
-      compare = '<';
-    }
-    else
-    {
-      comparePos = check.indexOf("=");
-      if (comparePos > 0)
-      {
-        compare = '=';
-      }
-    }
-  }
-
-  float Value1 = 0;
-  float Value2 = 0;
-
-  if (comparePos > 0)
-  {
-    String tmpCheck = check.substring(comparePos + 1);
-    Value2 = tmpCheck.toFloat();
-    tmpCheck = check.substring(0, comparePos);
-    Value1 = tmpCheck.toFloat();
-  }
-  else
-    return false;
-
-  switch (compare)
-  {
-    case '>':
-      if (Value1 > Value2)
-        match = true;
-      break;
-
-    case '<':
-      if (Value1 < Value2)
-        match = true;
-      break;
-
-    case '=':
-      if (Value1 == Value2)
-        match = true;
-      break;
-  }
-  return match;
-}
-
-
-/********************************************************************************************\
-  Check rule timers
-  \*********************************************************************************************/
-void rulesTimers()
-{
-  for (byte x = 0; x < RULES_TIMER_MAX; x++)
-  {
-    if (RulesTimer[x] != 0L) // timer active?
-    {
-      if (RulesTimer[x] <= millis()) // timer finished?
-      {
-        RulesTimer[x] = 0L; // turn off this timer
-        String event = F("Rules#Timer=");
-        event += x + 1;
-        rulesProcessing(event);
-      }
-    }
-  }
-}
-
-
-/********************************************************************************************\
-  Generate rule events based on task refresh
-  \*********************************************************************************************/
-
-void createRuleEvents(byte TaskIndex)
-{
-  LoadTaskSettings(TaskIndex);
-  byte BaseVarIndex = TaskIndex * VARS_PER_TASK;
-  byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[TaskIndex]);
-  byte sensorType = Device[DeviceIndex].VType;
-  for (byte varNr = 0; varNr < Device[DeviceIndex].ValueCount; varNr++)
-  {
-    String eventString = ExtraTaskSettings.TaskDeviceName;
-    eventString += F("#");
-    eventString += ExtraTaskSettings.TaskDeviceValueNames[varNr];
-    eventString += F("=");
-
-    if (sensorType == SENSOR_TYPE_LONG)
-      eventString += (unsigned long)UserVar[BaseVarIndex] + ((unsigned long)UserVar[BaseVarIndex + 1] << 16);
-    else
-      eventString += UserVar[BaseVarIndex + varNr];
-
-    rulesProcessing(eventString);
-  }
-}
-
-
 void SendValueLogger(byte TaskIndex)
 {
   String logger;
@@ -2635,233 +2226,6 @@ void checkRAM( const __FlashStringHelper* flashString)
     lowestRAMfunction = flashString;
   }
 }
-
-#ifdef PLUGIN_BUILD_TESTING
-
-#define isdigit(n) (n >= '0' && n <= '9')
-
-/********************************************************************************************\
-  Generate a tone of specified frequency on pin
-  \*********************************************************************************************/
-void tone(uint8_t _pin, unsigned int frequency, unsigned long duration) {
-  analogWriteFreq(frequency);
-  //NOTE: analogwrite reserves IRAM and uninitalized ram.
-  analogWrite(_pin,100);
-  delay(duration);
-  analogWrite(_pin,0);
-}
-
-/********************************************************************************************\
-  Play RTTTL string on specified pin
-  \*********************************************************************************************/
-void play_rtttl(uint8_t _pin, char *p )
-{
-  #define OCTAVE_OFFSET 0
-  // Absolutely no error checking in here
-
-  int notes[] = { 0,
-    262, 277, 294, 311, 330, 349, 370, 392, 415, 440, 466, 494,
-    523, 554, 587, 622, 659, 698, 740, 784, 831, 880, 932, 988,
-    1047, 1109, 1175, 1245, 1319, 1397, 1480, 1568, 1661, 1760, 1865, 1976,
-    2093, 2217, 2349, 2489, 2637, 2794, 2960, 3136, 3322, 3520, 3729, 3951
-  };
-
-
-
-  byte default_dur = 4;
-  byte default_oct = 6;
-  int bpm = 63;
-  int num;
-  long wholenote;
-  long duration;
-  byte note;
-  byte scale;
-
-  // format: d=N,o=N,b=NNN:
-  // find the start (skip name, etc)
-
-  while(*p != ':') p++;    // ignore name
-  p++;                     // skip ':'
-
-  // get default duration
-  if(*p == 'd')
-  {
-    p++; p++;              // skip "d="
-    num = 0;
-    while(isdigit(*p))
-    {
-      num = (num * 10) + (*p++ - '0');
-    }
-    if(num > 0) default_dur = num;
-    p++;                   // skip comma
-  }
-
-  // get default octave
-  if(*p == 'o')
-  {
-    p++; p++;              // skip "o="
-    num = *p++ - '0';
-    if(num >= 3 && num <=7) default_oct = num;
-    p++;                   // skip comma
-  }
-
-  // get BPM
-  if(*p == 'b')
-  {
-    p++; p++;              // skip "b="
-    num = 0;
-    while(isdigit(*p))
-    {
-      num = (num * 10) + (*p++ - '0');
-    }
-    bpm = num;
-    p++;                   // skip colon
-  }
-
-  // BPM usually expresses the number of quarter notes per minute
-  wholenote = (60 * 1000L / bpm) * 4;  // this is the time for whole note (in milliseconds)
-
-  // now begin note loop
-  while(*p)
-  {
-    // first, get note duration, if available
-    num = 0;
-    while(isdigit(*p))
-    {
-      num = (num * 10) + (*p++ - '0');
-    }
-
-    if (num) duration = wholenote / num;
-    else duration = wholenote / default_dur;  // we will need to check if we are a dotted note after
-
-    // now get the note
-    note = 0;
-
-    switch(*p)
-    {
-      case 'c':
-        note = 1;
-        break;
-      case 'd':
-        note = 3;
-        break;
-      case 'e':
-        note = 5;
-        break;
-      case 'f':
-        note = 6;
-        break;
-      case 'g':
-        note = 8;
-        break;
-      case 'a':
-        note = 10;
-        break;
-      case 'b':
-        note = 12;syncedClock
-        break;
-      case 'p':
-      default:
-        note = 0;
-    }
-    p++;
-
-    // now, get optional '#' sharp
-    if(*p == '#')
-    {
-      note++;
-      p++;
-    }
-
-    // now, get optional '.' dotted note
-    if(*p == '.')
-    {
-      duration += duration/2;
-      p++;
-    }
-
-    // now, get scale
-    if(isdigit(*p))
-    {
-      scale = *p - '0';
-      p++;
-    }
-    else
-    {
-      scale = default_oct;
-    }
-
-    scale += OCTAVE_OFFSET;
-
-    if(*p == ',')
-      p++;       // skip comma for next note (or we may be at the end)
-
-    // now play the note
-    if(note)
-    {
-      tone(_pin, notes[(scale - 4) * 12 + note], duration);
-    }
-    else
-    {
-      delay(duration/10);
-    }
-  }
-}
-
-#endif
-
-
-#ifdef FEATURE_ARDUINO_OTA
-/********************************************************************************************\
-  Allow updating via the Arduino OTA-protocol. (this allows you to upload directly from platformio)
-  \*********************************************************************************************/
-
-void ArduinoOTAInit()
-{
-  // Default port is 8266
-  ArduinoOTA.setPort(8266);
-	ArduinoOTA.setHostname(Settings.Name);
-
-  if (SecuritySettings.Password[0]!=0)
-    ArduinoOTA.setPassword(SecuritySettings.Password);
-
-  ArduinoOTA.onStart([]() {
-      Serial.println(F("OTA  : Start upload"));
-      SPIFFS.end(); //important, otherwise it fails
-  });
-
-  ArduinoOTA.onEnd([]() {
-      Serial.println(F("\nOTA  : End"));
-      //"dangerous": if you reset during flash you have to reflash via serial
-      //so dont touch device until restart is complete
-      Serial.println(F("\nOTA  : DO NOT RESET OR POWER OFF UNTIL BOOT+FLASH IS COMPLETE."));
-      delay(100);
-      ESP.reset();
-  });
-  ArduinoOTA.onProgress([](unsigned int progress, unsigned int total) {
-
-      Serial.printf("OTA  : Progress %u%%\r", (progress / (total / 100)));
-  });
-
-  ArduinoOTA.onError([](ota_error_t error) {
-      Serial.print(F("\nOTA  : Error (will reboot): "));
-      if (error == OTA_AUTH_ERROR) Serial.println(F("Auth Failed"));
-      else if (error == OTA_BEGIN_ERROR) Serial.println(F("Begin Failed"));
-      else if (error == OTA_CONNECT_ERROR) Serial.println(F("Connect Failed"));
-      else if (error == OTA_RECEIVE_ERROR) Serial.println(F("Receive Failed"));
-      else if (error == OTA_END_ERROR) Serial.println(F("End Failed"));
-
-      delay(100);
-      ESP.reset();
-  });
-  ArduinoOTA.begin();
-
-  String log = F("OTA  : Arduino OTA enabled on port 8266");
-  addLog(LOG_LEVEL_INFO, log);
-
-}
-
-#endif
 
 String getBearing(int degrees)
 {
@@ -3035,7 +2399,7 @@ unsigned long getHtpTime(){
             if (success && line.startsWith(F("Date:"))){
               string_to_tm((tmElements_t *)&tm, line);
               secsSince1900 = timeElementsToSecs();
-              if (secsSince1900 > sysTime) validTime = true;
+              if (secsSince1900 > clockCompare) validTime = true;
             }
 
             yield();
@@ -3044,6 +2408,10 @@ unsigned long getHtpTime(){
 
           client.flush();
           client.stop();
+          
+          log = "HTP time return : ";
+          log += secsSince1900;
+          addLog(LOG_LEVEL_DEBUG,log);
 
           if (validTime){
             return secsSince1900 + (Settings.TimeZone * 60UL);
@@ -3120,4 +2488,33 @@ String getDateTimeStringN(RtcDateTime now){
   sprintf(buffer,"%02u/%02u/%04u %02u:%02u:%02u", now.Day(),now.Month(),now.Year(),now.Hour(),now.Minute(),now.Second());
   datestring = String(buffer);
   return datestring;
+}
+
+boolean checkI2Cpresence(byte lookAddress) {
+  byte error, address;
+  Wire.beginTransmission(lookAddress);
+  error = Wire.endTransmission();
+  if (error == 0)
+  {
+    // Success
+    return true;
+  }
+  else if (error == 4)
+  {
+    // Unknown error
+    return false;
+  }
+  return false;
+}
+
+uint8_t readI2Cregister(uint8_t regAddress, byte deviceAddress){
+  Wire.beginTransmission(deviceAddress);
+  Wire.write(regAddress);
+  Wire.endTransmission();
+
+  // control register
+  Wire.requestFrom(deviceAddress, (uint8_t)1);
+
+  uint8_t regValue = Wire.read();
+  return regValue;
 }
