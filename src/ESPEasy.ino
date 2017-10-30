@@ -256,14 +256,19 @@
 #include <Servo.h>
 #define FS_NO_GLOBALS
 #include <FS.h>
-#include <SD.h>
+//#include <SD.h>
+#include <SdFat.h>
+SdFat SD;
 #include <base64.h>
+
 #if FEATURE_ADC_VCC
-ADC_MODE(ADC_VCC);
+  ADC_MODE(ADC_VCC);
 #endif
+
 #ifndef LWIP_OPEN_SRC
-#define LWIP_OPEN_SRC
+  #define LWIP_OPEN_SRC
 #endif
+
 #include "lwip/opt.h"
 #include "lwip/udp.h"
 #include "lwip/igmp.h"
@@ -632,6 +637,10 @@ uint32_t sysTimeGMT = 0;
 
 boolean TxData = false;
 boolean logData = true;
+
+class __FlashStringHelper;
+#define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
+#define F(string_literal) (FPSTR(PSTR(string_literal)))
 
 /*********************************************************************************************\
  * SETUP

@@ -3308,7 +3308,7 @@ bool loadFromFS(boolean spiffs, String path) {
   }
   else
   {
-    File dataFile = SD.open(path.c_str());
+    File dataFile = SD.open(URLDecode(path).c_str());
     if (!dataFile)
       return false;
     if (path.endsWith(".DAT"))
@@ -3504,7 +3504,6 @@ void handle_filelist() {
 // Web Interface SD card file list
 //********************************************************************************
 void handle_SDfilelist() {
-
   navMenuIndex = 7;
   String fdelete = WebServer.arg(F("delete"));
 
@@ -3517,35 +3516,41 @@ void handle_SDfilelist() {
   addHeader(true, reply);
   reply += F("<table border=1px frame='box' rules='all'><TH><TH>Filename:<TH>Size");
 
-  File root = SD.open("/");
-  root.rewindDirectory();
-  File entry = root.openNextFile();
-  while (entry)
-  {
-    if (!entry.isDirectory())
-    {
+  SdFile dirFile, file;
+  int nMax = 255;
+  char fileName[64];
+
+  // List files in root directory.
+  if (!dirFile.open("/", O_READ)) {
+    addLog(LOG_LEVEL_ERROR, "SD: open root failed");
+    dirFile.close();
+    return;
+  }
+  for (int n=0; (n < nMax) && file.openNext(&dirFile, O_READ); n++) {
+
+    // Skip directories and hidden files.
+    if (!file.isSubDir()) {
+      // Save dirIndex of file in directory.
+      //dirIndex[n] = file.dirIndex();
+
+      // Print the file name.
+      file.getName(fileName,64);
+
       reply += F("<TR><TD>");
-      if (entry.name() != "config.dat" && entry.name() != "security.dat")
-      {
-        reply += F("<a class='button link' href=\"SDfilelist?delete=");
-        reply += entry.name();
-        reply += F("\">Del</a>");
-      }
       reply += F("<TD><a href=\"");
-      reply += entry.name();
+      reply += fileName;
       reply += F("\">");
-      reply += entry.name();
+      reply += fileName;
       reply += F("</a>");
       reply += F("<TD>");
-      reply += entry.size();
+      reply += file.fileSize();
+
     }
-    entry.close();
-    entry = root.openNextFile();
+    file.close();
   }
-  //entry.close();
-  root.close();
+
+  dirFile.close();
   reply += F("</table></form>");
-  //reply += F("<BR><a class='button link' href=\"/upload\">Upload</a>");
   addFooter(reply);
   sendWebPage(F("TmplStd"), reply);
 }
@@ -3876,7 +3881,7 @@ void handle_sysinfo() {
 
 
 //********************************************************************************
-// URNEncode char string to string object
+// URLEncode char string to string object
 //********************************************************************************
 String URLEncode(const char* msg)
 {
@@ -3898,6 +3903,43 @@ String URLEncode(const char* msg)
   return encodedMsg;
 }
 
+// convert a single hex digit character to its integer value
+unsigned char h2int(char c)
+{
+    if (c >= '0' && c <='9') {
+        return((unsigned char)c - '0');
+    }
+    if (c >= 'a' && c <='f') {
+        return((unsigned char)c - 'a' + 10);
+    }
+    if (c >= 'A' && c <='F') {
+        return((unsigned char)c - 'A' + 10);
+    }
+    return(0);
+}
+
+String URLDecode(String input)
+{
+    char c;
+    String ret = "";
+
+    for (byte t = 0; t < input.length(); t++) {
+        c = input[t];
+        if (c == '+') c = ' ';
+        if (c == '%') {
+
+
+            t++;
+            c = input[t];
+            t++;
+            c = (h2int(c) << 4) | h2int(input[t]);
+        }
+
+        ret.concat(c);
+    }
+    return ret;
+
+}
 
 String getControllerSymbol(byte index)
 {

@@ -1186,9 +1186,15 @@ void addLog(byte loglevel, const char *line)
 
   if (loglevel <= Settings.SDLogLevel)
   {
-    File logFile = SD.open("log.dat", FILE_WRITE);
-    if (logFile)
+    String filename = getDateString('-');
+    filename += "-LOG.TXT";
+    File logFile = SD.open(String("log.dat"), FILE_WRITE);
+    if (logFile){
       logFile.println(line);
+    } else {
+      Settings.SDLogLevel = 0;
+      addLog(LOG_LEVEL_ERROR,"LOGGER: error saving in SD card");
+    }
     logFile.close();
   }
 }
@@ -2211,7 +2217,8 @@ void SendValueLogger(byte TaskIndex)
 
   addLog(LOG_LEVEL_DEBUG, logger);
 
-  String filename = F("VALUES.CSV");
+  String filename = getDateString('-');
+  filename += F("-datalog.csv");
   File logFile = SD.open(filename, FILE_WRITE);
   if (logFile)
     logFile.print(logger);
