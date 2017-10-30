@@ -54,8 +54,8 @@
 
 #define DEFAULT_CONTROLLER   false              // true or false enabled or disabled, set 1st controller defaults
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
-#define DEFAULT_PUB         "/0000/000/%devicename%/%sensortag%/%measure%" // Enter your pub
 #define DEFAULT_SUB         "/0000/000/%devicename%/write/#" // Enter your sub
+#define DEFAULT_PUB         "/0000/000/%devicename%/%systime%/%sensortag%/%measure%" // Enter your pub
 #define DEFAULT_SERVER      "192.168.0.8"       // Enter your Server IP address
 #define DEFAULT_PORT        8080                // Enter your Server port value
 
@@ -1073,6 +1073,15 @@ void checkSensors()
   bool isDeepSleep = isDeepSleepEnabled();
   //check all the devices and only run the sendtask if its time, or we if we used deep sleep mode
 
+  if (haveInternet()){
+    log = "TxData ->";
+    addLog(LOG_LEVEL_DEBUG, log);
+    sendMqttLog();
+  } else {
+    log = "logData ->";
+    addLog(LOG_LEVEL_DEBUG, log);
+  }
+
   if (isDeepSleep){
     for (byte x = 0; x < TASKS_MAX; x++){
       if (Settings.TaskDeviceEnabled[x]){
@@ -1099,14 +1108,6 @@ void checkSensors()
 
 
   RTC.readCounter++;
-
-  if (haveInternet()){
-    log = "TxData ->";
-    addLog(LOG_LEVEL_DEBUG, log);
-  } else {
-    log = "logData ->";
-    addLog(LOG_LEVEL_DEBUG, log);
-  }
 
   saveUserVarToRTC();
 }

@@ -3514,7 +3514,7 @@ void handle_SDfilelist() {
 
   String reply = "";
   addHeader(true, reply);
-  reply += F("<table border=1px frame='box' rules='all'><TH><TH>Filename:<TH>Size");
+  reply += F("<table border=1px frame='box' rules='all'><TH><TH>Filename<TH>Size (bytes)");
 
   SdFile dirFile, file;
   int nMax = 255;
@@ -3530,13 +3530,14 @@ void handle_SDfilelist() {
 
     // Skip directories and hidden files.
     if (!file.isSubDir()) {
-      // Save dirIndex of file in directory.
-      //dirIndex[n] = file.dirIndex();
 
       // Print the file name.
       file.getName(fileName,64);
 
       reply += F("<TR><TD>");
+      reply += F("<a class='button link' href=\"SDfilelist?delete=");
+      reply += fileName;
+      reply += F("\">Del</a>");
       reply += F("<TD><a href=\"");
       reply += fileName;
       reply += F("\">");

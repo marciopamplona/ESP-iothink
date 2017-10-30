@@ -1184,19 +1184,19 @@ void addLog(byte loglevel, const char *line)
 
   }
 
-  if (loglevel <= Settings.SDLogLevel)
-  {
-    String filename = getDateString('-');
-    filename += "-log.txt";
-    File logFile = SD.open(filename, FILE_WRITE);
-    if (logFile){
-      logFile.println(line);
-    } else {
-      //Settings.SDLogLevel = 0;
-      addLog(LOG_LEVEL_ERROR,"LOGGER: error saving in SD card");
-    }
-    logFile.close();
-  }
+  // if (loglevel <= Settings.SDLogLevel)
+  // {
+  //   String filename = getDateString('-');
+  //   filename += "-log.txt";
+  //   File logFile = SD.open(filename, FILE_WRITE);
+  //   if (logFile){
+  //     logFile.println(line);
+  //   } else {
+  //     Settings.SDLogLevel = 0;
+  //     addLog(LOG_LEVEL_ERROR,"LOGGER: error saving in SD card");
+  //   }
+  //   logFile.close();
+  // }
 }
 
 
@@ -2215,7 +2215,7 @@ void SendValueLogger(byte TaskIndex)
     logger += F("\r\n");
   }
 
-  addLog(LOG_LEVEL_DEBUG, logger);
+  //addLog(LOG_LEVEL_DEBUG, logger);
 
   String filename = getDateString('-');
   filename += F("-datalog.csv");
@@ -2225,6 +2225,107 @@ void SendValueLogger(byte TaskIndex)
   logFile.close();
 }
 
+void MQTTLogger(String publish, String value)
+{
+  String logger;
+
+  logger = publish;
+  logger += ';';
+  logger += value;
+  addLog(LOG_LEVEL_DEBUG, logger);
+
+  String filename = getDateString('-') + F("-mqtt-datalog.csv");
+  File logFile = SD.open(filename, FILE_WRITE);
+  if (logFile)
+    logFile.println(logger);
+  logFile.close();
+
+  if (logData){
+    filename = F("mqtt-datalog.unsent");
+    logFile = SD.open(filename, FILE_WRITE);
+    if (logFile){
+      logFile.println(logger);
+    }
+    logFile.close();
+  }
+}
+
+void sendMqttLog(){
+  if (TxData){
+    SdFile logFile("mqtt-datalog.unsent", O_READ);
+    // String log;
+    // log+="MQTT: unsent file size: ";
+    // log+=logFile.fileSize();
+    // addLog(LOG_LEVEL_DEBUG,log);
+
+    if (logFile.fileSize()>10){
+      char line[200];
+      String logger = "\n";
+      String mqttString[2];
+      int lineNumber = 1;
+      int n;
+      addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file...");
+      
+      // read lines from the file
+      while ((n = logFile.fgets(line, sizeof(line))) > 0) {
+        if (line[n - 1] == '\n') {
+          logger += F("MQTT: reading line ");
+          logger +=  lineNumber;
+          logger += F(":> ");
+          logger += String(line);
+          mqttString[0] = String(line).substring(0,String(line).lastIndexOf(';'));
+          // logger += " [0] "+ mqttString[0];
+          mqttString[1] = String(line).substring(String(line).lastIndexOf(';')+1);
+          // logger += " [1] "+ mqttString[1];
+          
+          MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
+        } else {
+          logger += F("MQTT: ERROR reading line ");
+          logger +=  lineNumber;
+          logger += F(":> ");
+          logger += String(line);
+        }
+        lineNumber++;
+      }
+      // Remove files from current directory.
+      if (!SD.remove("mqtt-datalog.unsent")) {
+        logger += F("MQTT: ERROR removing unsent file");
+      }
+      addLog(LOG_LEVEL_DEBUG, logger);
+    }
+    logFile.close();
+  }
+}
+
+boolean MQTTdirectSend(struct EventStruct *event){
+  ControllerSettingsStruct ControllerSettings;
+  LoadControllerSettings(event->ControllerIndex, (byte*)&ControllerSettings, sizeof(ControllerSettings));
+
+  if (ExtraTaskSettings.TaskDeviceValueNames[0][0] == 0)
+    PluginCall(PLUGIN_GET_DEVICEVALUENAMES, event, dummyString);
+
+  String pubname = ControllerSettings.Publish;
+  pubname.replace(F("%devicename%"), Settings.Name);
+  pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
+  pubname.replace(F("%systime%"), String(sysTimeGMT));
+  pubname.replace(F("%id%"), String(event->idx));
+
+  String value = "";
+  byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[event->TaskIndex]);
+  byte valueCount = getValueCountFromSensorType(event->sensorType);
+  for (byte x = 0; x < valueCount; x++)
+  {
+    String tmppubname = pubname;
+    tmppubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+    if (event->sensorType == SENSOR_TYPE_LONG)
+      value = (unsigned long)UserVar[event->BaseVarIndex] + ((unsigned long)UserVar[event->BaseVarIndex + 1] << 16);
+    else
+      value = toString(UserVar[event->BaseVarIndex + x], ExtraTaskSettings.TaskDeviceValueDecimals[x]);
+    MQTTclient.publish(tmppubname.c_str(), value.c_str(), Settings.MQTTRetainFlag);
+    MQTTLogger(tmppubname,value);
+  }
+  
+}
 
 void checkRAM( const __FlashStringHelper* flashString)
 {

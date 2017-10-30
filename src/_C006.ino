@@ -76,32 +76,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
 
     case CPLUGIN_PROTOCOL_SEND:
       {
-        ControllerSettingsStruct ControllerSettings;
-        LoadControllerSettings(event->ControllerIndex, (byte*)&ControllerSettings, sizeof(ControllerSettings));
-
-
-        if (ExtraTaskSettings.TaskDeviceValueNames[0][0] == 0)
-          PluginCall(PLUGIN_GET_DEVICEVALUENAMES, event, dummyString);
-
-        String pubname = ControllerSettings.Publish;
-        pubname.replace(F("%devicename%"), Settings.Name);
-        pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
-        pubname.replace(F("%systime%"), String(sysTimeGMT));
-        pubname.replace(F("%id%"), String(event->idx));
-
-        String value = "";
-        byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[event->TaskIndex]);
-        byte valueCount = getValueCountFromSensorType(event->sensorType);
-        for (byte x = 0; x < valueCount; x++)
-        {
-          String tmppubname = pubname;
-          tmppubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
-          if (event->sensorType == SENSOR_TYPE_LONG)
-            value = (unsigned long)UserVar[event->BaseVarIndex] + ((unsigned long)UserVar[event->BaseVarIndex + 1] << 16);
-          else
-            value = toString(UserVar[event->BaseVarIndex + x], ExtraTaskSettings.TaskDeviceValueDecimals[x]);
-          MQTTclient.publish(tmppubname.c_str(), value.c_str(), Settings.MQTTRetainFlag);
-        }
+        MQTTdirectSend(event);
         break;
       }
       return success;

@@ -133,7 +133,7 @@ boolean Plugin_026(byte function, struct EventStruct *event, String& string)
           }
           case 10:
           {
-            value = sysTime - (Settings.TimeZone * 60); // Retorna sempre GMT para não confundir a galera
+            value = sysTimeGMT; // Retorna sempre GMT para não confundir a galera
             break;
           }
         }

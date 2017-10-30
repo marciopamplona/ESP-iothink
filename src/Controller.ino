@@ -179,7 +179,7 @@ void MQTTConnect()
       MQTTresult = MQTTclient.connect(clientid.c_str(), 0, 0, 0, 0);
     if (MQTTresult)
     {
-      log = F("MQTT : Connected to broker");
+      log = F("MQTT : Connected");
       addLog(LOG_LEVEL_INFO, log);
       subscribeTo = ControllerSettings.Subscribe;
       subscribeTo.replace(F("%devicename%"), Settings.Name);
@@ -194,7 +194,7 @@ void MQTTConnect()
     }
     else
     {
-      log = F("MQTT : Failed to connected to broker");
+      log = F("MQTT : connection fail");
       addLog(LOG_LEVEL_ERROR, log);
     }
 

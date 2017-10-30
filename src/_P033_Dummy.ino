@@ -86,14 +86,14 @@ boolean Plugin_033(byte function, struct EventStruct *event, String& string)
     case PLUGIN_READ:
       {
         event->sensorType = Settings.TaskDevicePluginConfig[event->TaskIndex][0];
-        for (byte x=0; x<4;x++)
-        {
-          String log = F("Dummy: value ");
-          log += x+1;
-          log += F(": ");
-          log += UserVar[event->BaseVarIndex+x];
-          addLog(LOG_LEVEL_INFO,log);
-        }
+        // for (byte x=0; x<4;x++)
+        // {
+        //   String log = F("Dummy: value ");
+        //   log += x+1;
+        //   log += F(": ");
+        //   log += UserVar[event->BaseVarIndex+x];
+        //   addLog(LOG_LEVEL_INFO,log);
+        // }
         success = true;
         break;
       }
