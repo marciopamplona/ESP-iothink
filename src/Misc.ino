@@ -1187,12 +1187,12 @@ void addLog(byte loglevel, const char *line)
   if (loglevel <= Settings.SDLogLevel)
   {
     String filename = getDateString('-');
-    filename += "-LOG.TXT";
-    File logFile = SD.open(String("log.dat"), FILE_WRITE);
+    filename += "-log.txt";
+    File logFile = SD.open(filename, FILE_WRITE);
     if (logFile){
       logFile.println(line);
     } else {
-      Settings.SDLogLevel = 0;
+      //Settings.SDLogLevel = 0;
       addLog(LOG_LEVEL_ERROR,"LOGGER: error saving in SD card");
     }
     logFile.close();
