@@ -1,3 +1,14 @@
+//   Esquema de ligação:
+//   =================================================================================
+//
+//   SD card (SPI):         RTC (I2C):      DEEP SLEEP WAKEUP:
+//   ==============         ==========      ==================
+//   CS:   D3               SDA: D2         D0 -> RST
+//   MISO: D6               SCL: D1
+//   MOSI: D7               
+//   SCK:  D5
+//   
+//   =================================================================================
 //   Simple Arduino sketch for ESP module, supporting:
 //   =================================================================================
 //   Simple switch inputs and direct GPIO output control to drive relais, mosfets, etc
@@ -282,13 +293,8 @@ extern "C" {
 // RTC stuff
 #define countof(a) (sizeof(a) / sizeof(a[0]))
 boolean lostPower;
-//#ifdef DS3231
 #include <RtcDS3231.h>
-//  RtcDS3231<TwoWire> Rtc(Wire);
-//#else
 #include <RtcDS1307.h>
-//  RtcDS1307<TwoWire> Rtc(Wire);
-//#endif
 int RtcHardware = 0;
 RtcDS3231<TwoWire> Rtc(Wire);
 

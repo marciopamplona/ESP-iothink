@@ -1,0 +1,47 @@
+{
+    "description": "FAT16/FAT32 file system for SD cards.", 
+    "repository": {
+        "url": "https://github.com/greiman/SdFat", 
+        "type": "git"
+    }, 
+    "platforms": [
+        "atmelavr", 
+        "atmelsam", 
+        "espressif8266", 
+        "intel_arc32", 
+        "microchippic32", 
+        "nordicnrf51", 
+        "teensy", 
+        "timsp430"
+    ], 
+    "export": {
+        "exclude": [
+            "extras", 
+            "docs", 
+            "tests", 
+            "test", 
+            "*.doxyfile", 
+            "*.pdf"
+        ], 
+        "include": null
+    }, 
+    "authors": [
+        {
+            "maintainer": true, 
+            "name": "Bill Greiman", 
+            "url": null, 
+            "email": "fat16lib@sbcglobal.net"
+        }
+    ], 
+    "keywords": [
+        "storage", 
+        "data"
+    ], 
+    "id": 322, 
+    "name": "SdFat", 
+    "frameworks": [
+        "arduino"
+    ], 
+    "version": "1.0.3", 
+    "homepage": null
+}

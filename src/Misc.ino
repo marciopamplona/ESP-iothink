@@ -2252,12 +2252,14 @@ void MQTTLogger(String publish, String value)
 
 void sendMqttLog(){
   if (TxData){
-    SdFile logFile("mqtt-datalog.unsent", O_READ);
-    // String log;
-    // log+="MQTT: unsent file size: ";
-    // log+=logFile.fileSize();
-    // addLog(LOG_LEVEL_DEBUG,log);
-
+    SdFile logFile;
+    int openCode = logFile.open("mqtt-datalog.unsent", O_READ);
+    addLog(LOG_LEVEL_DEBUG, String("MQTT: opening file return code: ")+String(openCode));
+    
+    // if (!logFile.open("mqtt-datalog.unsent", O_READ)){
+    //   addLog(LOG_LEVEL_ERROR,F("MQTT: error writing in SD card"));
+    //   return;
+    // }
     if (logFile.fileSize()>10){
       char line[200];
       String logger = "\n";
@@ -2287,13 +2289,14 @@ void sendMqttLog(){
         }
         lineNumber++;
       }
+      logFile.close();
       // Remove files from current directory.
       if (!SD.remove("mqtt-datalog.unsent")) {
         logger += F("MQTT: ERROR removing unsent file");
       }
       addLog(LOG_LEVEL_DEBUG, logger);
     }
-    logFile.close();
+    //logFile.close();
   }
 }
 
