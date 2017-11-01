@@ -3,7 +3,7 @@
 //
 //   SD card (SPI):         RTC (I2C):      DEEP SLEEP WAKEUP:
 //   ==============         ==========      ==================
-//   CS:   D3               SDA: D2         D0 -> RST
+//   CS:   D3 ou D8         SDA: D2         D0 -> RST
 //   MISO: D6               SCL: D1
 //   MOSI: D7               
 //   SCK:  D5
@@ -63,12 +63,12 @@
 #define DEFAULT_GW          "192.168.0.1"       // Enter your gateway
 #define DEFAULT_SUBNET      "255.255.255.0"     // Enter your subnet
 
-#define DEFAULT_CONTROLLER   false              // true or false enabled or disabled, set 1st controller defaults
+#define DEFAULT_CONTROLLER   true              // true or false enabled or disabled, set 1st controller defaults
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
 #define DEFAULT_SUB         "/0000/000/%devicename%/write/#" // Enter your sub
 #define DEFAULT_PUB         "/0000/000/%devicename%/%systime%/%sensortag%/%measure%" // Enter your pub
-#define DEFAULT_SERVER      "192.168.0.8"       // Enter your Server IP address
-#define DEFAULT_PORT        8080                // Enter your Server port value
+#define DEFAULT_SERVER      "192.168.1.20"       // Enter your Server IP address
+#define DEFAULT_PORT        1883                // Enter your Server port value
 
 #define DEFAULT_PROTOCOL    6                   // Protocol used for controller communications
 //   1 = Domoticz HTTP
@@ -109,8 +109,8 @@
 // ********************************************************************************
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
-#define ESP_PROJECT_PID           20171019L
-#define VERSION                             4
+#define ESP_PROJECT_PID             20171101L
+#define VERSION                             6
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
 
@@ -572,6 +572,7 @@ struct RTCStruct
   unsigned long readCounter;
   unsigned long syncCounter; // 16 + 7 bytes = 23 bytes
   unsigned long nextSyncTime;
+  unsigned long unsentIndex;
 } RTC;
 
 int deviceCount = -1;
@@ -648,6 +649,16 @@ boolean logData = true;
 class __FlashStringHelper;
 #define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
 #define F(string_literal) (FPSTR(PSTR(string_literal)))
+
+// 16 bytes
+struct memLogStruct {
+  byte taskIndex; // Sensortag retrieve
+  byte deviceValueName; // Measure retrieve
+  unsigned long epoch;
+  double value;
+};
+
+boolean WebServerInitialized = false;
 
 /*********************************************************************************************\
  * SETUP
@@ -766,12 +777,15 @@ void setup()
 /////////////////////////////////////// RTC CHECKS
   log = F("INIT: reg 0x7, dev 0x68: ");
   log += readI2Cregister(7, DS1307_ADDRESS);
-  addLog(LOG_LEVEL_DEBUG, log);
   
-  if (checkI2Cpresence(DS3231_ADDRESS)&&(readI2Cregister(7, DS3231_ADDRESS)==0)){
+  addLog(LOG_LEVEL_DEBUG, log);
+  byte reg = readI2Cregister(7, DS3231_ADDRESS);
+  boolean presence = checkI2Cpresence(DS3231_ADDRESS);
+
+  if (presence && ((reg==0)||(reg==0x80))){
     log = F("INIT: DS3231 detected");
     RtcHardware = 3231;
-  } else if (checkI2Cpresence(DS1307_ADDRESS)){
+  } else if (presence){
     log = F("INIT: DS1307 detected");
     RtcDS1307<TwoWire> Rtc(Wire);
     RtcHardware = 1307;
@@ -1090,6 +1104,7 @@ void checkSensors()
   }
 
   if (isDeepSleep){
+
     for (byte x = 0; x < TASKS_MAX; x++){
       if (Settings.TaskDeviceEnabled[x]){
         SensorSendTask(x);
@@ -1294,6 +1309,7 @@ void backgroundtasks()
   
   if (!isDeepSleepEnabled()){
     if (wifiSetup) dnsServer.processNextRequest();
+    if (!WebServerInitialized) WebServerInit();
     WebServer.handleClient();
   }
 

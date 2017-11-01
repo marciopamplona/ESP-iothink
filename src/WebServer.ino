@@ -81,6 +81,7 @@ void WebServerInit()
   }
 
   WebServer.begin();
+  WebServerInitialized = true;
 }
 
 void sendWebPage(const String& tmplName, String& pageContent)
@@ -626,6 +627,7 @@ void handle_config() {
   String espsubnet = WebServer.arg(F("espsubnet"));
   String espdns = WebServer.arg(F("espdns"));
   String unit = WebServer.arg(F("unit"));
+  String samplesPerTx = WebServer.arg(F("samplespertx"));
   //String apkey = WebServer.arg(F("apkey"));
 
   String reply = "";
@@ -700,6 +702,8 @@ void handle_config() {
 
   addFormCheckBox(reply, F("Sleep on connection failure"), F("deepsleeponfail"), Settings.deepSleepOnFail);
 
+  addFormNumericBox(reply, F("Samples / TX"), F("delay"), Settings.samplesPerTx, 1, 512);
+  
   addFormSeparator(reply);
 
   reply += F("<TR><TD><TD>");
@@ -3506,52 +3510,56 @@ void handle_filelist() {
 void handle_SDfilelist() {
   navMenuIndex = 7;
   String fdelete = WebServer.arg(F("delete"));
-
-  if (fdelete.length() > 0)
-  {
-    SD.remove((char*)fdelete.c_str());
-  }
-
   String reply = "";
   addHeader(true, reply);
-  reply += F("<table border=1px frame='box' rules='all'><TH><TH>Filename<TH>Size (bytes)");
 
-  SdFile dirFile, file;
-  int nMax = 255;
-  char fileName[64];
-
-  // List files in root directory.
-  if (!dirFile.open("/", O_READ)) {
-    addLog(LOG_LEVEL_ERROR, "SD: open root failed");
-    dirFile.close();
-    return;
-  }
-  for (int n=0; (n < nMax) && file.openNext(&dirFile, O_READ); n++) {
-
-    // Skip directories and hidden files.
-    if (!file.isSubDir()) {
-
-      // Print the file name.
-      file.getName(fileName,64);
-
-      reply += F("<TR><TD>");
-      reply += F("<a class='button link' href=\"SDfilelist?delete=");
-      reply += fileName;
-      reply += F("\">Del</a>");
-      reply += F("<TD><a href=\"");
-      reply += fileName;
-      reply += F("\">");
-      reply += fileName;
-      reply += F("</a>");
-      reply += F("<TD>");
-      reply += file.fileSize();
-
+  if (sdcardEnabled){
+    if (fdelete.length() > 0)
+    {
+      SD.remove((char*)fdelete.c_str());
     }
-    file.close();
-  }
 
-  dirFile.close();
-  reply += F("</table></form>");
+    reply += F("<table border=1px frame='box' rules='all'><TH><TH>Filename<TH>Size (bytes)");
+
+    SdFile dirFile, file;
+    int nMax = 255;
+    char fileName[64];
+
+    // List files in root directory.
+    if (!dirFile.open("/", O_READ)) {
+      addLog(LOG_LEVEL_ERROR, "SD: open root failed");
+      dirFile.close();
+      return;
+    }
+
+    for (int n=0; (n < nMax) && file.openNext(&dirFile, O_READ); n++) {
+
+      // Skip directories and hidden files.
+      if (!file.isSubDir()) {
+
+        // Print the file name.
+        file.getName(fileName,64);
+
+        reply += F("<TR><TD>");
+        reply += F("<a class='button link' href=\"SDfilelist?delete=");
+        reply += fileName;
+        reply += F("\">Del</a>");
+        reply += F("<TD><a href=\"");
+        reply += fileName;
+        reply += F("\">");
+        reply += fileName;
+        reply += F("</a>");
+        reply += F("<TD>");
+        reply += file.fileSize();
+
+      }
+      file.close();
+    }
+    dirFile.close();
+  } else {
+    reply += F("<p>SD card not present</p>");
+  }
+  
   addFooter(reply);
   sendWebPage(F("TmplStd"), reply);
 }

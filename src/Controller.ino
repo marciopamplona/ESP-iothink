@@ -135,7 +135,16 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       if (root["syncinterval"].success()){
         Settings.syncInterval = (root.get<String>("syncinterval")).toInt();
       }
-
+      
+      if (root["reset"].success()){
+        if ((root.get<String>("reset")).toInt()){
+          pinMode(0, INPUT);
+          pinMode(2, INPUT);
+          pinMode(15, INPUT);
+          ESP.reset();
+        }
+      }
+      
       if (!SaveSettings()){
         log=F("OTA config : Fail saving to flash");
         addLog(LOG_LEVEL_DEBUG, log);
