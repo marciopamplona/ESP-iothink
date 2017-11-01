@@ -270,6 +270,7 @@
 //#include <SD.h>
 #include <SdFat.h>
 SdFat SD;
+boolean sdcardEnabled = false;
 #include <base64.h>
 
 #if FEATURE_ADC_VCC

@@ -82,6 +82,7 @@ void hardwareInit()
     if (SD.begin(Settings.Pin_sd_cs))
     {
       String log = F("SD   : Init OK");
+      sdcardEnabled = true;
       addLog(LOG_LEVEL_INFO, log);
     }
     else

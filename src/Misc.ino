@@ -2217,86 +2217,91 @@ void SendValueLogger(byte TaskIndex)
 
   //addLog(LOG_LEVEL_DEBUG, logger);
 
-  String filename = getDateString('-');
-  filename += F("-datalog.csv");
-  File logFile = SD.open(filename, FILE_WRITE);
-  if (logFile)
-    logFile.print(logger);
-  logFile.close();
+  if (sdcardEnabled){
+    String filename = getDateString('-');
+    filename += F("-datalog.csv");
+    File logFile = SD.open(filename, FILE_WRITE);
+      if (logFile)
+      logFile.print(logger);
+    logFile.close();
+  }
 }
 
 void MQTTLogger(String publish, String value)
 {
-  String logger;
+  if (sdcardEnabled){
+    String logger;
 
-  logger = publish;
-  logger += ';';
-  logger += value;
-  addLog(LOG_LEVEL_DEBUG, logger);
+    logger = publish;
+    logger += ';';
+    logger += value;
+    addLog(LOG_LEVEL_DEBUG, logger);
 
-  String filename = getDateString('-') + F("-mqtt-datalog.csv");
-  File logFile = SD.open(filename, FILE_WRITE);
-  if (logFile)
-    logFile.println(logger);
-  logFile.close();
-
-  if (logData){
-    filename = F("mqtt-datalog.unsent");
-    logFile = SD.open(filename, FILE_WRITE);
-    if (logFile){
+    String filename = getDateString('-') + F("-mqtt-datalog.csv");
+    File logFile = SD.open(filename, FILE_WRITE);
+    if (logFile)
       logFile.println(logger);
-    }
     logFile.close();
+
+    if (logData){
+      filename = F("mqtt-datalog.unsent");
+      logFile = SD.open(filename, FILE_WRITE);
+      if (logFile){
+        logFile.println(logger);
+      }
+      logFile.close();
+    }
   }
 }
 
 void sendMqttLog(){
   if (TxData){
-    SdFile logFile;
-    int openCode = logFile.open("mqtt-datalog.unsent", O_READ);
-    addLog(LOG_LEVEL_DEBUG, String("MQTT: opening file return code: ")+String(openCode));
-    
-    // if (!logFile.open("mqtt-datalog.unsent", O_READ)){
-    //   addLog(LOG_LEVEL_ERROR,F("MQTT: error writing in SD card"));
-    //   return;
-    // }
-    if (logFile.fileSize()>10){
-      char line[200];
-      String logger = "\n";
-      String mqttString[2];
-      int lineNumber = 1;
-      int n;
-      addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file...");
+    if (sdcardEnabled){
+      SdFile logFile;
+      int openCode = logFile.open("mqtt-datalog.unsent", O_READ);
+      addLog(LOG_LEVEL_DEBUG, String("MQTT: opening file return code: ")+String(openCode));
       
-      // read lines from the file
-      while ((n = logFile.fgets(line, sizeof(line))) > 0) {
-        if (line[n - 1] == '\n') {
-          logger += F("MQTT: reading line ");
-          logger +=  lineNumber;
-          logger += F(":> ");
-          logger += String(line);
-          mqttString[0] = String(line).substring(0,String(line).lastIndexOf(';'));
-          // logger += " [0] "+ mqttString[0];
-          mqttString[1] = String(line).substring(String(line).lastIndexOf(';')+1);
-          // logger += " [1] "+ mqttString[1];
-          
-          MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
-        } else {
-          logger += F("MQTT: ERROR reading line ");
-          logger +=  lineNumber;
-          logger += F(":> ");
-          logger += String(line);
+      // if (!logFile.open("mqtt-datalog.unsent", O_READ)){
+      //   addLog(LOG_LEVEL_ERROR,F("MQTT: error writing in SD card"));
+      //   return;
+      // }
+      if (logFile.fileSize()>10){
+        char line[200];
+        String logger = "\n";
+        String mqttString[2];
+        int lineNumber = 1;
+        int n;
+        addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file...");
+        
+        // read lines from the file
+        while ((n = logFile.fgets(line, sizeof(line))) > 0) {
+          if (line[n - 1] == '\n') {
+            logger += F("MQTT: reading line ");
+            logger +=  lineNumber;
+            logger += F(":> ");
+            logger += String(line);
+            mqttString[0] = String(line).substring(0,String(line).lastIndexOf(';'));
+            // logger += " [0] "+ mqttString[0];
+            mqttString[1] = String(line).substring(String(line).lastIndexOf(';')+1);
+            // logger += " [1] "+ mqttString[1];
+            
+            MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
+          } else {
+            logger += F("MQTT: ERROR reading line #");
+            logger +=  lineNumber;
+            logger += F(":> ");
+            logger += String(line);
+          }
+          lineNumber++;
         }
-        lineNumber++;
+        logFile.close();
+        // Remove files from current directory.
+        if (!SD.remove("mqtt-datalog.unsent")) {
+          logger += F("MQTT: ERROR removing unsent file");
+        }
+        addLog(LOG_LEVEL_DEBUG, logger);
       }
-      logFile.close();
-      // Remove files from current directory.
-      if (!SD.remove("mqtt-datalog.unsent")) {
-        logger += F("MQTT: ERROR removing unsent file");
-      }
-      addLog(LOG_LEVEL_DEBUG, logger);
     }
-    //logFile.close();
   }
 }
 
@@ -2314,6 +2319,7 @@ boolean MQTTdirectSend(struct EventStruct *event){
   pubname.replace(F("%id%"), String(event->idx));
 
   String value = "";
+  String log;
   byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[event->TaskIndex]);
   byte valueCount = getValueCountFromSensorType(event->sensorType);
   for (byte x = 0; x < valueCount; x++)
@@ -2326,6 +2332,8 @@ boolean MQTTdirectSend(struct EventStruct *event){
       value = toString(UserVar[event->BaseVarIndex + x], ExtraTaskSettings.TaskDeviceValueDecimals[x]);
     MQTTclient.publish(tmppubname.c_str(), value.c_str(), Settings.MQTTRetainFlag);
     MQTTLogger(tmppubname,value);
+    log = "MQTT logger: ";
+    log+= String(event->idx) + " / " + String(event->TaskIndex) + " / ";
   }
   
 }
