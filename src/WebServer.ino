@@ -3560,6 +3560,7 @@ void handle_SDfilelist() {
     reply += F("<p>SD card not present</p>");
   }
   
+  reply += F("</table></form>");
   addFooter(reply);
   sendWebPage(F("TmplStd"), reply);
 }

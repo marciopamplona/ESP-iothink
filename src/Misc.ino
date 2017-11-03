@@ -566,6 +566,27 @@ void fileSystemCheck()
   }
 }
 
+int spiffsFreeSpace() {
+  fs::FSInfo fs_info;
+  SPIFFS.info(fs_info);
+  return fs_info.totalBytes-fs_info.usedBytes;
+}
+
+int unsentFileSize(boolean spiffsOnTrue) {
+  int size = 0;
+  if (spiffsOnTrue){
+    fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r");
+    size = f.size();
+    f.close();
+  } else {
+    SdFile f;
+    f.open("mqtt-datalog-sdcard.unsent", O_READ);
+    size = f.fileSize();
+    f.close();
+  }
+  return size;
+}
+
 
 /********************************************************************************************\
   Find device index corresponding to task number setting
@@ -976,7 +997,7 @@ void ResetFactory(void)
 
   RTC.flashCounter=0; //reset flashcounter, since we're already counting the number of factory-resets. we dont want to hit a flash-count limit during reset.
   RTC.factoryResetCounter++;
-  RTC.unsentIndex = 0;
+  //RTC.unsentIndex = 0;
   saveToRTC();
 
   //always format on factory reset, in case of corrupt SPIFFS
@@ -1006,7 +1027,7 @@ void ResetFactory(void)
   fname=F("rules1.txt");
   InitFile(fname.c_str(), 0);
 
-  fname=F("mqtt-datalog.unsent");
+  fname=F("mqtt-datalog-spiffs.unsent");
   InitFile(fname.c_str(), 0);
 
   LoadSettings();
@@ -2197,40 +2218,51 @@ void SendValueLogger(byte TaskIndex)
 {
   String logger;
 
+  // Assumindo somente o controller 0!
+  ControllerSettingsStruct ControllerSettings;
+  LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings));
+
+  String pubname = ControllerSettings.Publish;
+  pubname.replace(F("%devicename%"), Settings.Name);
+  pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
+  pubname.replace(F("%systime%"), String(sysTimeGMT));
+  pubname.replace(F("%id%"), String(TaskIndex));  // Correto ?
+
   LoadTaskSettings(TaskIndex);
   byte BaseVarIndex = TaskIndex * VARS_PER_TASK;
   byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[TaskIndex]);
   byte sensorType = Device[DeviceIndex].VType;
+
   for (byte varNr = 0; varNr < Device[DeviceIndex].ValueCount; varNr++)
   {
-    logger += getDateString('-');
-    logger += F(" ");
-    logger += getTimeString(':');
-    logger += F(",");
-    logger += Settings.Unit;
-    logger += F(",");
-    logger += ExtraTaskSettings.TaskDeviceName;
-    logger += F(",");
-    logger += ExtraTaskSettings.TaskDeviceValueNames[varNr];
-    logger += F(",");
-
-    if (sensorType == SENSOR_TYPE_LONG)
-      logger += (unsigned long)UserVar[BaseVarIndex] + ((unsigned long)UserVar[BaseVarIndex + 1] << 16);
-    else
-      logger += String(UserVar[BaseVarIndex + varNr], ExtraTaskSettings.TaskDeviceValueDecimals[varNr]);
-    logger += F("\r\n");
+    String tmppubname = pubname;
+    tmppubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[varNr]);
+    MQTTLogger(tmppubname, UserVar[BaseVarIndex + varNr], TaskIndex, varNr, sysTimeGMT);
   }
+}
 
-  //addLog(LOG_LEVEL_DEBUG, logger);
+String publishStringMount(byte controller, byte TaskIndex, byte deviceValueName, uint32_t epoch, double value){
+  String logger;
 
-  if (sdcardEnabled){
-    String filename = getDateString('-');
-    filename += F("-datalog.csv");
-    File logFile = SD.open(filename, FILE_WRITE);
-      if (logFile)
-      logFile.print(logger);
-    logFile.close();
-  }
+  LoadTaskSettings(TaskIndex);
+  ControllerSettingsStruct ControllerSettings;
+  LoadControllerSettings(controller, (byte*)&ControllerSettings, sizeof(ControllerSettings));
+    
+  String pubname = ControllerSettings.Publish;
+  
+  pubname.replace(F("%devicename%"), Settings.Name);
+  pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
+  pubname.replace(F("%systime%"), String(epoch));
+  pubname.replace(F("%id%"), String(TaskIndex));  // Correto ?
+  pubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[deviceValueName]);
+
+  LoadTaskSettings(TaskIndex);
+  
+  byte BaseVarIndex = TaskIndex * VARS_PER_TASK;
+  byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[TaskIndex]);
+  byte sensorType = Device[DeviceIndex].VType;
+
+  return pubname+String(";")+String(value);
 }
 
 void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueName, uint32_t epoch)
@@ -2248,8 +2280,9 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       logFile.println(logger);
     logFile.close();
 
+    // Cria arquivo de não enviado, somente se não houver internet
     if (logData){
-      filename = F("mqtt-datalog.unsent");
+      filename = F("mqtt-datalog-sdcard.unsent");
       logFile = SD.open(filename, FILE_WRITE);
       if (logFile){
         logFile.println(logger);
@@ -2272,8 +2305,9 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       String err;
       byte *pointerToByteToSave = (byte*)&data;
       int datasize = sizeof(struct memLogStruct);
-      fs::File f = SPIFFS.open((char*)"mqtt-datalog.unsent", "r+");
-
+      fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
+      int filesize = 0;
+      
       if (flashGuard().length()>0){
         String error = flashGuard();
         addLog(LOG_LEVEL_ERROR,error);
@@ -2281,11 +2315,18 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       }
       
       if (!f) {
-        addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (open)"));
-        goto fail;
+        InitFile(String("mqtt-datalog-spiffs.unsent").c_str(), 0);
+        f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
+        addLog(LOG_LEVEL_DEBUG, F("MQTT logger: creating unsent file in SPIFFS..."));
+        if (!f) {
+          addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (open)"));
+          goto fail;
+        }
       }
     
-      if (!(f.seek(RTC.unsentIndex, fs::SeekSet))){
+      filesize = f.size();
+
+      if (!(f.seek(filesize, fs::SeekSet))){
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (seek)"));
         f.close();
         goto fail;
@@ -2300,17 +2341,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         }
         pointerToByteToSave++;
       }
-      RTC.unsentIndex+=sizeof(struct memLogStruct);
-      saveToRTC();
       f.close();
-
-      // err=SaveToFile((char*)"mqtt-datalog.unsent", RTC.unsentIndex, (byte*)&data, sizeof(struct memLogStruct));
-      // if (err.length()) {
-      //   addLog(LOG_LEVEL_DEBUG, String("MQTT logger: error saving unsent data in SPIFFS - ")+String(err));
-      // } else {
-      //   RTC.unsentIndex+=sizeof(struct memLogStruct);
-      //   saveToRTC();
-      // }
 
       fail:
       boolean donothing;
@@ -2320,18 +2351,19 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
 
 void sendMqttLog(){
   if (TxData){
+    char line[200];
+    String logger = "\n";
+    String mqttString[2];
+
     if (sdcardEnabled){
       SdFile logFile;
-      int openCode = logFile.open("mqtt-datalog.unsent", O_READ);
+      int openCode = logFile.open("mqtt-datalog-sdcard.unsent", O_READ);
       //addLog(LOG_LEVEL_DEBUG, String("MQTT: opening file return code: ")+String(openCode));
       
       if ((logFile.fileSize()>10) && (openCode > 0)){
-        char line[200];
-        String logger = "\n";
-        String mqttString[2];
         int lineNumber = 1;
         int n;
-        addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file...");
+        addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file from SDCARD...");
         
         // read lines from the file
         while ((n = logFile.fgets(line, sizeof(line))) > 0) {
@@ -2341,9 +2373,7 @@ void sendMqttLog(){
             logger += F(":> ");
             logger += String(line);
             mqttString[0] = String(line).substring(0,String(line).lastIndexOf(';'));
-            // logger += " [0] "+ mqttString[0];
             mqttString[1] = String(line).substring(String(line).lastIndexOf(';')+1);
-            // logger += " [1] "+ mqttString[1];
             
             MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
           } else {
@@ -2356,12 +2386,73 @@ void sendMqttLog(){
         }
         logFile.close();
         // Remove files from current directory.
-        if (!SD.remove("mqtt-datalog.unsent")) {
+        if (!SD.remove("mqtt-datalog-sdcard.unsent")) {
           logger += F("MQTT: ERROR removing unsent file");
         }
         addLog(LOG_LEVEL_DEBUG, logger);
       }
+    } else {
+      String temp;
+      int datasize = unsentFileSize(true);
+      memLogStruct dataChunk[datasize/16];
+      byte byteread = 0;
+      byte *byteBuf = (byte*)dataChunk;
+      // char buffer[3];
+      String log;
+      
+      addLog(LOG_LEVEL_DEBUG, "MQTT sender: reading unsent file from SPIFFS...");
+      
+      fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
+
+      if (!f) {
+        addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (open)"));
+        goto fail;
+      }
+    
+      addLog(LOG_LEVEL_INFO, String(F("FILE : File size "))+f.size()+F(" bytes"));
+
+      if (!(f.seek(0, fs::SeekSet))){
+        addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (seek)"));
+        f.close();
+        goto fail;
+      }
+      
+      for (int x = 0; x < datasize; x++)
+      {
+        byteread = f.read();
+        if(byteread<0){
+          addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error reading unsent data in SPIFFS (read)"));
+          f.close();
+          goto fail;
+        }
+        //sprintf_P(buffer,"%2X ",byteread);
+        //log += buffer;
+        *(byteBuf+x) = byteread;
+      }
+      log += "\n\n";
+
+      for (int x = 0; x < datasize/16; x++)
+      {
+        log += String("Reg number: ") + x + ": ";
+        // log += String("taskIndex: ") + dataChunk[x].taskIndex + "\n";
+        // log += String("deviceValueName: ") + dataChunk[x].deviceValueName + "\n";
+        // log += String("epoch: ") + dataChunk[x].epoch + "\n";
+        // log += String("value: ") + dataChunk[x].value + "\n";
+        
+        temp = publishStringMount(0, dataChunk[x].taskIndex, dataChunk[x].deviceValueName, dataChunk[x].epoch, dataChunk[x].value);
+        log += temp + String("\n");
+        mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
+        mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
+        
+        MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
+      }
+
+      addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
+      f.close();
+      SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
     }
+    fail:
+    boolean donothing;
   }
 }
 
@@ -2393,19 +2484,8 @@ boolean MQTTdirectSend(struct EventStruct *event){
 
     MQTTclient.publish(tmppubname.c_str(), value.c_str(), Settings.MQTTRetainFlag);
     
-    MQTTLogger(tmppubname,UserVar[event->BaseVarIndex + x],event->TaskIndex,x,sysTimeGMT);
-    
-    // log = "MQTT logger: ";
-    // // TaskIndex = Índice do sensor, busca tag e measure
-    // // BaseVarIndex = ??
-    // // x = Índice do measure
-    // log+= String(event->TaskIndex) + ": " + String(ExtraTaskSettings.TaskDeviceName) + " / ";
-    // log+= String(x) + ": " + String(ExtraTaskSettings.TaskDeviceValueNames[x]);
-    
-    // addLog(LOG_LEVEL_DEBUG, log);
-
+    //MQTTLogger(tmppubname,UserVar[event->BaseVarIndex + x],event->TaskIndex,x,sysTimeGMT);
   }
-  
 }
 
 void checkRAM( const __FlashStringHelper* flashString)

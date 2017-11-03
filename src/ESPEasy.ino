@@ -572,7 +572,7 @@ struct RTCStruct
   unsigned long readCounter;
   unsigned long syncCounter; // 16 + 7 bytes = 23 bytes
   unsigned long nextSyncTime;
-  unsigned long unsentIndex;
+  //unsigned long unsentIndex;
 } RTC;
 
 int deviceCount = -1;
@@ -659,6 +659,7 @@ struct memLogStruct {
 };
 
 boolean WebServerInitialized = false;
+boolean MQTTconnected = false;
 
 /*********************************************************************************************\
  * SETUP
@@ -717,19 +718,14 @@ void setup()
     log = F("INIT : Cold Boot");
     delay(3000); // Delay para debug 
   }
-
+  addLog(LOG_LEVEL_INFO, log);
 
   RTC.deepSleepState=0;
   saveToRTC();
 
-  log += " - Reading Counter: ";
-  log += RTC.readCounter;
-  log += " - Sync Counter: ";
-  log += RTC.syncCounter;
-  addLog(LOG_LEVEL_INFO, log);
-
   fileSystemCheck();
   LoadSettings();
+
   Settings.UseRules = 0;
   if (Settings.samplesPerTx == 0){
     Settings.samplesPerTx = 3;
@@ -773,6 +769,19 @@ void setup()
     Serial.setDebugOutput(true);
 
   hardwareInit();
+  log = "INIT: Reading Counter: ";
+  log += RTC.readCounter;
+  log += " - Sync Counter: ";
+  log += RTC.syncCounter;
+  log += " - Unsent filesize: ";
+
+  if (sdcardEnabled){
+    log += String(unsentFileSize(false));
+  } else {
+    log += String(unsentFileSize(true));
+  }
+
+  addLog(LOG_LEVEL_INFO, log);
 
 /////////////////////////////////////// RTC CHECKS
   log = F("INIT: reg 0x7, dev 0x68: ");
@@ -1094,12 +1103,16 @@ void checkSensors()
   bool isDeepSleep = isDeepSleepEnabled();
   //check all the devices and only run the sendtask if its time, or we if we used deep sleep mode
 
-  if (haveInternet()){
+  if (MQTTconnected){
     log = "TxData ->";
+    TxData = true;
+    logData = false;
     addLog(LOG_LEVEL_DEBUG, log);
     sendMqttLog();
   } else {
     log = "logData ->";
+    TxData = false;
+    logData = true;
     addLog(LOG_LEVEL_DEBUG, log);
   }
 

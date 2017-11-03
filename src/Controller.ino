@@ -178,15 +178,14 @@ void MQTTConnect()
   for (byte x = 1; x < 3; x++)
   {
     String log = "";
-    boolean MQTTresult = false;
 
     if ((SecuritySettings.ControllerUser[0] != 0) && (SecuritySettings.ControllerPassword[0] != 0))
-      //MQTTresult = MQTTclient.connect(clientid.c_str(), SecuritySettings.ControllerUser[0], SecuritySettings.ControllerPassword[0], LWTTopic.c_str(), 0, 0, "Connection Lost");
-      MQTTresult = MQTTclient.connect(clientid.c_str(), SecuritySettings.ControllerUser[0], SecuritySettings.ControllerPassword[0], 0, 0, 0, 0);
+      //MQTTconnected = MQTTclient.connect(clientid.c_str(), SecuritySettings.ControllerUser[0], SecuritySettings.ControllerPassword[0], LWTTopic.c_str(), 0, 0, "Connection Lost");
+      MQTTconnected = MQTTclient.connect(clientid.c_str(), SecuritySettings.ControllerUser[0], SecuritySettings.ControllerPassword[0], 0, 0, 0, 0);
     else
-      //MQTTresult = MQTTclient.connect(clientid.c_str(), LWTTopic.c_str(), 0, 0, "Connection Lost");
-      MQTTresult = MQTTclient.connect(clientid.c_str(), 0, 0, 0, 0);
-    if (MQTTresult)
+      //MQTTconnected = MQTTclient.connect(clientid.c_str(), LWTTopic.c_str(), 0, 0, "Connection Lost");
+      MQTTconnected = MQTTclient.connect(clientid.c_str(), 0, 0, 0, 0);
+    if (MQTTconnected)
     {
       log = F("MQTT : Connected");
       addLog(LOG_LEVEL_INFO, log);
