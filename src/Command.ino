@@ -260,7 +260,7 @@ void ExecuteCommand(byte source, const char *Line)
   {
     success = true;
     if (Par1 > 0)
-      deepSleepStart(Par1); // call the second part of the function to avoid check and enable one-shot operation
+      deepSleepStart(Par1, Par2); // call the second part of the function to avoid check and enable one-shot operation
   }
 
   if (strcasecmp_P(Command, PSTR("TaskValueSet")) == 0)

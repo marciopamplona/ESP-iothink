@@ -101,7 +101,7 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       log=F("OTA config : ");
       log+=String(sPayload);
       addLog(LOG_LEVEL_DEBUG, log);
-
+      boolean publishResult = false;
       // Zera a mensagem retida no server
       ControllerSettingsStruct ControllerSettings;
       LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
@@ -113,7 +113,7 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       log = "Reset retained message: ";
       log += subscribed;
       addLog(LOG_LEVEL_DEBUG, log);
-      MQTTclient.publish(subscribed.c_str(), "", true);
+      publishResult = MQTTclient.publish(subscribed.c_str(), "", true);
       //////////////////////////////////
 
       if (root["sleepdelay"].success()){
@@ -137,11 +137,13 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       }
       
       if (root["reset"].success()){
-        if ((root.get<String>("reset")).toInt()){
-          pinMode(0, INPUT);
-          pinMode(2, INPUT);
-          pinMode(15, INPUT);
-          ESP.reset();
+        if (publishResult){
+          if ((root.get<String>("reset")).toInt()){
+            pinMode(0, INPUT);
+            pinMode(2, INPUT);
+            pinMode(15, INPUT);
+            ESP.restart();
+          }
         }
       }
       

@@ -652,14 +652,15 @@ class __FlashStringHelper;
 
 // 16 bytes
 struct memLogStruct {
-  byte taskIndex; // Sensortag retrieve
-  byte deviceValueName; // Measure retrieve
+  uint8_t taskIndex; // Sensortag retrieve
+  uint8_t deviceValueName; // Measure retrieve
   unsigned long epoch;
   double value;
 };
 
 boolean WebServerInitialized = false;
 boolean MQTTconnected = false;
+boolean NextWakeRadioOn = true;
 
 /*********************************************************************************************\
  * SETUP
@@ -673,6 +674,8 @@ void setup()
 
   initLog();
 
+  
+
   if (SpiffsSectors() < 32)
   {
     Serial.println(F("\nNo (or too small) SPIFFS area..\nSystem Halted\nPlease reflash with 128k SPIFFS minimum!"));
@@ -685,6 +688,7 @@ void setup()
   String log = F("\n\n\n\rINIT : Booting version: ");
   log += BUILD_GIT;
   addLog(LOG_LEVEL_INFO, log);
+  addLog(LOG_LEVEL_INFO, String(F("INIT: Compile time "))+getDateTimeStringN(compileTime));
 
   //warm boot
   if (readFromRTC())
@@ -732,8 +736,7 @@ void setup()
     SaveSettings();
   }
 
-  if (strcasecmp(SecuritySettings.WifiSSID, "ssid") == 0)
-    wifiSetup = true;
+  if (strcasecmp(SecuritySettings.WifiSSID, "ssid") == 0) wifiSetup = true;
 
   ExtraTaskSettings.TaskIndex = 255; // make sure this is an unused nr to prevent cache load on boot
 
@@ -758,15 +761,13 @@ void setup()
     Serial.begin(Settings.BaudRate);
   }
 
-  if (Settings.Build != BUILD)
-    BuildFixes();
+  if (Settings.Build != BUILD) BuildFixes();
 
   log = F("INIT : Free RAM:");
   log += FreeMem();
   addLog(LOG_LEVEL_INFO, log);
 
-  if (Settings.UseSerial && Settings.SerialLogLevel >= LOG_LEVEL_DEBUG_MORE)
-    Serial.setDebugOutput(true);
+  if (Settings.UseSerial && Settings.SerialLogLevel >= LOG_LEVEL_DEBUG_MORE) Serial.setDebugOutput(true);
 
   hardwareInit();
   log = "INIT: Reading Counter: ";
@@ -842,10 +843,37 @@ void setup()
     addLog(LOG_LEVEL_INFO, log);
   }
 //////////////////////////////////////////////
+  
+  // Em modo Deep Sleep, o Radio é desligado por default
+  if (isDeepSleepEnabled()){
+    NextWakeRadioOn = false;
+  }
+
+  // Só loga e transmite se estiver sincronizado
+  // if (RTC.syncCounter == 0){
+    // Verifica se pode transmitir, resultado é múltiplo do samplesPerTx
+    addLog(LOG_LEVEL_DEBUG, String(F("INIT: samplesPerTx: "))+String(Settings.samplesPerTx));
+    if ((RTC.readCounter % Settings.samplesPerTx)==0){
+      TxData = true;
+      logData = false;
+      addLog(LOG_LEVEL_DEBUG, F("INIT: data transmission CYCLE"));
+    } else {
+      TxData = false;
+      logData = true;
+      addLog(LOG_LEVEL_DEBUG, F("INIT: log data CYCLE"));
+    }
+    // Verifica se no próximo Wake, deve iniciar com o rádio ligado
+    if (((RTC.readCounter+1) % Settings.samplesPerTx)==0){
+      NextWakeRadioOn = true;
+      addLog(LOG_LEVEL_DEBUG, F("INIT: nextWakeRadioOn = true"));
+    } 
+  // }
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
 
-  WifiAPconfig();
+  if (!isDeepSleepEnabled()){
+    WifiAPconfig();
+  }
 
   //After booting, we want all the tasks to run without delaying more than neccesary.
   //Plugins that need an initial startup delay need to overwrite their initial timerSensor value in PLUGIN_INIT
@@ -865,18 +893,6 @@ void setup()
   NPluginInit();
   WifiDisconnect();
 
-  // Só loga e transmite se estiver sincronizado
-  if (RTC.syncCounter == 0){
-    // Verifica se pode transmitir, resultado é múltiplo do samplesPerTx
-    if ((RTC.readCounter % Settings.samplesPerTx)==0){
-      TxData = true;
-      logData = false;
-    } else {
-      TxData = false;
-      logData = true;
-    }
-  }
-  
   if (!isDeepSleepEnabled()){
     WebServerInit();
   }
@@ -895,9 +911,10 @@ void setup()
   }
 
   initTime();
-#if FEATURE_ADC_VCC
+
+  #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
-#endif
+  #endif
 
   if (TxData && !isDeepSleepEnabled()){
   // Start DNS, only used if the ESP has no valid WiFi config
@@ -932,12 +949,13 @@ void loop()
       runEach30Seconds();
       runOncePerSecond();
       
-      // Aguarda Configuração via MQTT
-      for (int i=0; i < 10; i++){
-        if(Settings.ControllerEnabled[0]) MQTTclient.loop();
+      if (TxData){
+        // Aguarda Configuração via MQTT
+        for (int i=0; i < 10; i++){
+          if(Settings.ControllerEnabled[0]) MQTTclient.loop();
+        }
       }
-
-      deepSleep(Settings.Delay);
+      deepSleep(Settings.Delay, NextWakeRadioOn);
       //deepsleep will never return, its a special kind of reboot
   }
   //normal mode, run each task when its time
@@ -1080,12 +1098,9 @@ void runEach30Seconds()
   wdcounter++;
   timerwd = millis() + 30000;
  
-  if (TxData){
-  
-    if(Settings.ControllerEnabled[0]) MQTTCheck();
+  if (!isDeepSleepEnabled()) if(Settings.ControllerEnabled[0]) MQTTCheck();
 
-    if (Settings.UseSSDP) SSDP_update();
-  }
+  //  if (Settings.UseSSDP) SSDP_update();
 
   #if FEATURE_ADC_VCC
   vcc = ESP.getVcc() / 1000.0;
@@ -1107,14 +1122,19 @@ void checkSensors()
     log = "TxData ->";
     TxData = true;
     logData = false;
-    addLog(LOG_LEVEL_DEBUG, log);
     sendMqttLog();
   } else {
-    log = "logData ->";
-    TxData = false;
-    logData = true;
-    addLog(LOG_LEVEL_DEBUG, log);
+    if (RTC.syncCounter == 0){
+      log = "logData ->";
+      TxData = false;
+      logData = true;
+    } else {
+      log = "Waiting for clock sync ->";
+      TxData = false;
+      logData = false;
+    }
   }
+  addLog(LOG_LEVEL_DEBUG, log);
 
   if (isDeepSleep){
 

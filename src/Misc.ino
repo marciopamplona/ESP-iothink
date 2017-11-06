@@ -29,7 +29,7 @@ bool isDeepSleepEnabled()
   return true;
 }
 
-void deepSleep(int delay)
+void deepSleep(int delay, boolean radioON)
 {
 
   if (!isDeepSleepEnabled())
@@ -51,10 +51,10 @@ void deepSleep(int delay)
     }
   }
 
-  deepSleepStart(delay); // Call deepSleepStart function after these checks
+  deepSleepStart(delay, radioON); // Call deepSleepStart function after these checks
 }
 
-void deepSleepStart(int delay)
+void deepSleepStart(int delay, boolean radioON)
 {
   RTC.deepSleepState = 1;
   saveToRTC();
@@ -62,8 +62,13 @@ void deepSleepStart(int delay)
   if (delay > 4294 || delay < 0)
     delay = 4294;   //max sleep time ~1.2h
 
-  addLog(LOG_LEVEL_INFO, F("SLEEP: Powering down to deepsleep..."));
-  ESP.deepSleep((uint32_t)delay * 1000000, WAKE_RF_DEFAULT);
+  if (!radioON){
+    addLog(LOG_LEVEL_INFO, F("SLEEP: Powering down to deepsleep, RADIO OFF..."));
+    ESP.deepSleep((uint32_t)delay * 1000000, RF_DISABLED);
+  } else {
+    addLog(LOG_LEVEL_INFO, F("SLEEP: Powering down to deepsleep, RADIO ON..."));
+    ESP.deepSleep((uint32_t)delay * 1000000, WAKE_RF_DEFAULT);
+  }
 }
 
 boolean remoteConfig(struct EventStruct *event, String& string)
@@ -366,71 +371,6 @@ boolean timeOut(unsigned long timer)
 
 
 /********************************************************************************************\
-  Status LED
-\*********************************************************************************************/
-#define STATUS_PWM_NORMALVALUE (PWMRANGE>>2)
-#define STATUS_PWM_NORMALFADE (PWMRANGE>>8)
-#define STATUS_PWM_TRAFFICRISE (PWMRANGE>>1)
-
-// void statusLED(boolean traffic)
-// {
-//   static int gnStatusValueCurrent = -1;
-//   static long int gnLastUpdate = millis();
-
-//   if (Settings.Pin_status_led == -1)
-//     return;
-
-//   if (gnStatusValueCurrent<0)
-//     pinMode(Settings.Pin_status_led, OUTPUT);
-
-//   int nStatusValue = gnStatusValueCurrent;
-
-//   if (traffic)
-//   {
-//     nStatusValue += STATUS_PWM_TRAFFICRISE; //ramp up fast
-//   }
-//   else
-//   {
-
-//     if (WiFi.status() == WL_CONNECTED)
-//     {
-//       long int delta=millis()-gnLastUpdate;
-//       if (delta>0 || delta<0 )
-//       {
-//         nStatusValue -= STATUS_PWM_NORMALFADE; //ramp down slowly
-//         nStatusValue = std::max(nStatusValue, STATUS_PWM_NORMALVALUE);
-//         gnLastUpdate=millis();
-//       }
-//     }
-//     //AP mode is active
-//     else if (WifiIsAP())
-//     {
-//       nStatusValue = ((millis()>>1) & PWMRANGE) - (PWMRANGE>>2); //ramp up for 2 sec, 3/4 luminosity
-//     }
-//     //Disconnected
-//     else
-//     {
-//       nStatusValue = (millis()>>1) & (PWMRANGE>>2); //ramp up for 1/2 sec, 1/4 luminosity
-//     }
-//   }
-
-//   nStatusValue = constrain(nStatusValue, 0, PWMRANGE);
-
-//   if (gnStatusValueCurrent != nStatusValue)
-//   {
-//     gnStatusValueCurrent = nStatusValue;
-
-//     long pwm = nStatusValue * nStatusValue; //simple gamma correction
-//     pwm >>= 10;
-//     if (Settings.Pin_status_led_Inversed)
-//       pwm = PWMRANGE-pwm;
-
-//     analogWrite(Settings.Pin_status_led, pwm);
-//   }
-// }
-
-
-/********************************************************************************************\
   delay in milliseconds with background processing
   \*********************************************************************************************/
 void delayBackground(unsigned long delay)
@@ -566,23 +506,34 @@ void fileSystemCheck()
   }
 }
 
-int spiffsFreeSpace() {
+unsigned long spiffsFreeSpace() {
   fs::FSInfo fs_info;
   SPIFFS.info(fs_info);
   return fs_info.totalBytes-fs_info.usedBytes;
 }
 
-int unsentFileSize(boolean spiffsOnTrue) {
-  int size = 0;
+unsigned long unsentFileSize(boolean spiffsOnTrue) {
+  unsigned long size = 0;
+  int datasize = sizeof(memLogStruct);
+
   if (spiffsOnTrue){
-    fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r");
+    fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
     size = f.size();
     f.close();
+    if (size % datasize != 0){
+      addLog(LOG_LEVEL_DEBUG, F("INIT: wrong unsent file size in SPIFFS, removing..."));
+      SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
+    }
+    
   } else {
     SdFile f;
     f.open("mqtt-datalog-sdcard.unsent", O_READ);
     size = f.fileSize();
     f.close();
+    // if (size % datasize != 0){
+    //   addLog(LOG_LEVEL_DEBUG, F("INIT: wrong unsent file size in SDCARD, removing..."));
+    // }
+    // SD.remove("mqtt-datalog-sdcard.unsent");
   }
   return size;
 }
@@ -2024,6 +1975,7 @@ void setTime(unsigned long t) {
     //nextSyncTime = (uint32_t)t + Settings.syncInterval;
     prevMillis = millis();  // restart counting from now (thanks to Korman for this fix)
   }
+  sysTimeGMT = sysTime - (60UL * Settings.TimeZone);
   RTC.syncCounter = 0;
   saveToRTC();
   lostPower = false;
@@ -2044,7 +1996,6 @@ unsigned long now() {
       prevMillis += 1000;
     }
   }
-
   sysTimeGMT = sysTime - (60UL * Settings.TimeZone);
 
   if (!syncedClock()) {
@@ -2061,8 +2012,10 @@ unsigned long now() {
 
   // No intervalo de SYNC ? Relógio está sincronizado ? Há internet ?
   if ((!syncedClock() || (RTC.nextSyncTime <= sysTime)) && 
-        haveInternet() &&
-       (Settings.UseNTP || Settings.htpEnable)) {
+       (haveInternet()) &&
+       (Settings.UseNTP || Settings.htpEnable) || 
+       (RTC.syncCounter > 0 && haveInternet())
+      ) {
     
     unsigned long  ntp = 0, htp = 0;
 
@@ -2306,7 +2259,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       byte *pointerToByteToSave = (byte*)&data;
       int datasize = sizeof(struct memLogStruct);
       fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
-      int filesize = 0;
+      unsigned long filesize = 0;
       
       if (flashGuard().length()>0){
         String error = flashGuard();
@@ -2358,16 +2311,15 @@ void sendMqttLog(){
     if (sdcardEnabled){
       SdFile logFile;
       int openCode = logFile.open("mqtt-datalog-sdcard.unsent", O_READ);
-      //addLog(LOG_LEVEL_DEBUG, String("MQTT: opening file return code: ")+String(openCode));
       
       if ((logFile.fileSize()>10) && (openCode > 0)){
-        int lineNumber = 1;
-        int n;
+        unsigned long lineNumber = 1;
+        unsigned long n;
         addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file from SDCARD...");
         
         // read lines from the file
-        while ((n = logFile.fgets(line, sizeof(line))) > 0) {
-          if (line[n - 1] == '\n') {
+        while ((n = logFile.fgets(line, sizeof(line))) > 30) { // Melhorar essa checagem de consistência
+          if ((line[n - 1] == '\n')) {
             logger += F("MQTT: reading line ");
             logger +=  lineNumber;
             logger += F(":> ");
@@ -2392,67 +2344,89 @@ void sendMqttLog(){
         addLog(LOG_LEVEL_DEBUG, logger);
       }
     } else {
-      String temp;
-      int datasize = unsentFileSize(true);
-      memLogStruct dataChunk[datasize/16];
-      byte byteread = 0;
-      byte *byteBuf = (byte*)dataChunk;
-      // char buffer[3];
-      String log;
-      
-      addLog(LOG_LEVEL_DEBUG, "MQTT sender: reading unsent file from SPIFFS...");
-      
-      fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
+      unsigned long datasize = unsentFileSize(true);
+      int structSize = sizeof(struct memLogStruct);
 
-      if (!f) {
-        addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (open)"));
-        goto fail;
-      }
-    
-      addLog(LOG_LEVEL_INFO, String(F("FILE : File size "))+f.size()+F(" bytes"));
+      if (datasize >= structSize){
+        String temp;
+        memLogStruct dataChunk;
+        byte byteread = 0;
+        byte *byteBuf = (byte*)&dataChunk;
+        String log;
+        
+        addLog(LOG_LEVEL_DEBUG, "MQTT sender: reading unsent file from SPIFFS...");
+        
+        fs::File f = SPIFFS.open("mqtt-datalog-spiffs.unsent", "r+");
 
-      if (!(f.seek(0, fs::SeekSet))){
-        addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (seek)"));
-        f.close();
-        goto fail;
-      }
+        if (!f) {
+          addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (open)"));
+          goto fail;
+        }
       
-      for (int x = 0; x < datasize; x++)
-      {
-        byteread = f.read();
-        if(byteread<0){
-          addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error reading unsent data in SPIFFS (read)"));
+        addLog(LOG_LEVEL_INFO, String(F("FILE : File size "))+f.size()+F(" bytes"));
+
+        if (!(f.seek(0, fs::SeekSet))){
+          addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (seek)"));
           f.close();
           goto fail;
         }
-        //sprintf_P(buffer,"%2X ",byteread);
-        //log += buffer;
-        *(byteBuf+x) = byteread;
-      }
-      log += "\n\n";
-
-      for (int x = 0; x < datasize/16; x++)
-      {
-        log += String("Reg number: ") + x + ": ";
-        // log += String("taskIndex: ") + dataChunk[x].taskIndex + "\n";
-        // log += String("deviceValueName: ") + dataChunk[x].deviceValueName + "\n";
-        // log += String("epoch: ") + dataChunk[x].epoch + "\n";
-        // log += String("value: ") + dataChunk[x].value + "\n";
         
-        temp = publishStringMount(0, dataChunk[x].taskIndex, dataChunk[x].deviceValueName, dataChunk[x].epoch, dataChunk[x].value);
-        log += temp + String("\n");
-        mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
-        mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
-        
-        MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
-      }
+        int byteCopyIdx = 0;
+        boolean publishResult = false;
+        // Byte copy
+        for (unsigned long  x = 1; (x <= datasize); x++)
+        {
+          byteread = f.read();
+          if(byteread<0){
+            addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (read)"));
+            f.close();
+            goto fail;
+          }
 
-      addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
-      f.close();
-      SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
+          *(byteBuf+byteCopyIdx) = byteread;
+          byteCopyIdx++;
+
+          if ((x % structSize)==0) {
+            // log = String("Seek position number: ") + x + ": ";
+            // log += String("taskIndex: ") + dataChunk.taskIndex + "\n";
+            // log += String("deviceValueName: ") + dataChunk.deviceValueName + "\n";
+            // log += String("epoch: ") + dataChunk.epoch + "\n";
+            // log += String("value: ") + dataChunk.value + "\n";
+            // addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
+
+            if (dataChunk.epoch < clockCompare-(Settings.TimeZone*60UL)){
+              log = F("MQTT sender: ERROR reading unsent file, registry epoch: ");
+              log += String(dataChunk.epoch);
+              log += F(" - compile time: ");
+              log += String(clockCompare);
+              addLog(LOG_LEVEL_DEBUG, log);
+              f.close();
+              SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
+              break;
+            }
+
+            temp = publishStringMount(0, dataChunk.taskIndex, dataChunk.deviceValueName, dataChunk.epoch, dataChunk.value);
+            log += temp + String("\n");
+            mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
+            mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
+            publishResult = MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
+            if (!publishResult){
+              addLog(LOG_LEVEL_DEBUG,F("MQTT sender: ERROR transmitting unsent file, aborting..."));
+              break;
+            }
+            byteCopyIdx = 0;
+          }
+        }
+
+        log += "\n\n";
+
+        addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
+        f.close();
+        if (publishResult) SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
+      }
+      fail:
+      boolean donothing;
     }
-    fail:
-    boolean donothing;
   }
 }
 
@@ -2700,6 +2674,7 @@ bool syncedClock(){
     return false;
   }
   if (sysTime > clockCompare) {
+    lostPower = false;
     return true;
   } else {
     addLog(LOG_LEVEL_DEBUG, F("CLOCK : not synced"));
