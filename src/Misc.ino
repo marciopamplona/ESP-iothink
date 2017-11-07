@@ -62,6 +62,13 @@ void deepSleepStart(int delay, boolean radioON)
   if (delay > 4294 || delay < 0)
     delay = 4294;   //max sleep time ~1.2h
 
+  SPI.end();
+  
+  // Desliga cartão SD
+  pinMode(Settings.Pin_sd_cs,OUTPUT);
+  digitalWrite(Settings.Pin_sd_cs,LOW);
+  setPinState(1, Settings.Pin_sd_cs, PIN_MODE_OUTPUT, LOW);
+
   if (!radioON){
     addLog(LOG_LEVEL_INFO, F("SLEEP: Powering down to deepsleep, RADIO OFF..."));
     ESP.deepSleep((uint32_t)delay * 1000000, RF_DISABLED);
@@ -2228,19 +2235,17 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
     addLog(LOG_LEVEL_DEBUG, logger);
 
     String filename = getDateString('-') + F("-mqtt-datalog.csv");
-    File logFile = SD.open(filename, FILE_WRITE);
-    if (logFile)
-      logFile.println(logger);
+    SdFile logFile;
+    logFile.open(filename.c_str(),  O_CREAT | O_WRITE | O_APPEND);
+    if (logFile.isOpen()) logFile.println(logger);
     logFile.close();
 
     // Cria arquivo de não enviado, somente se não houver internet
     if (logData){
-      filename = F("mqtt-datalog-sdcard.unsent");
-      logFile = SD.open(filename, FILE_WRITE);
-      if (logFile){
-        logFile.println(logger);
-      }
-      logFile.close();
+      SdFile unsentFile;
+      unsentFile.open("mqtt-datalog-sdcard.unsent",  O_CREAT | O_WRITE | O_APPEND);
+      if (unsentFile.isOpen()) unsentFile.println(logger);
+      unsentFile.close();
     }
   } else {
     if (logData){
@@ -2342,6 +2347,8 @@ void sendMqttLog(){
           logger += F("MQTT: ERROR removing unsent file");
         }
         addLog(LOG_LEVEL_DEBUG, logger);
+      } else {
+        logFile.close();
       }
     } else {
       unsigned long datasize = unsentFileSize(true);
