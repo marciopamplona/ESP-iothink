@@ -2238,6 +2238,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
     SdFile logFile;
     logFile.open(filename.c_str(),  O_CREAT | O_WRITE | O_APPEND);
     if (logFile.isOpen()) logFile.println(logger);
+    logFile.flush();
     logFile.close();
 
     // Cria arquivo de não enviado, somente se não houver internet
@@ -2245,6 +2246,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       SdFile unsentFile;
       unsentFile.open("mqtt-datalog-sdcard.unsent",  O_CREAT | O_WRITE | O_APPEND);
       if (unsentFile.isOpen()) unsentFile.println(logger);
+      unsentFile.flush();
       unsentFile.close();
     }
   } else {
