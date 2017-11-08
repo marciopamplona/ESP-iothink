@@ -2186,6 +2186,7 @@ void SendValueLogger(byte TaskIndex)
   pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
   pubname.replace(F("%systime%"), String(sysTimeGMT));
   pubname.replace(F("%id%"), String(TaskIndex));  // Correto ?
+  pubname.replace(F("%chipid%"), String(ESP.getChipId(), HEX));
 
   LoadTaskSettings(TaskIndex);
   byte BaseVarIndex = TaskIndex * VARS_PER_TASK;
@@ -2195,7 +2196,7 @@ void SendValueLogger(byte TaskIndex)
   for (byte varNr = 0; varNr < Device[DeviceIndex].ValueCount; varNr++)
   {
     String tmppubname = pubname;
-    tmppubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[varNr]);
+    tmppubname.replace(F("%measuretag%"), ExtraTaskSettings.TaskDeviceValueNames[varNr]);
     MQTTLogger(tmppubname, UserVar[BaseVarIndex + varNr], TaskIndex, varNr, sysTimeGMT);
   }
 }
@@ -2213,7 +2214,8 @@ String publishStringMount(byte controller, byte TaskIndex, byte deviceValueName,
   pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
   pubname.replace(F("%systime%"), String(epoch));
   pubname.replace(F("%id%"), String(TaskIndex));  // Correto ?
-  pubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[deviceValueName]);
+  pubname.replace(F("%measuretag%"), ExtraTaskSettings.TaskDeviceValueNames[deviceValueName]);
+  pubname.replace(F("%chipid%"), String(ESP.getChipId(),HEX));
 
   LoadTaskSettings(TaskIndex);
   
@@ -2453,7 +2455,8 @@ boolean MQTTdirectSend(struct EventStruct *event){
   pubname.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
   pubname.replace(F("%systime%"), String(sysTimeGMT));
   pubname.replace(F("%id%"), String(event->idx));
-
+  pubname.replace(F("%chipid%"), String(ESP.getChipId(), HEX));
+  
   String value = "";
   String log;
   byte DeviceIndex = getDeviceIndex(Settings.TaskDeviceNumber[event->TaskIndex]);
@@ -2461,7 +2464,7 @@ boolean MQTTdirectSend(struct EventStruct *event){
   for (byte x = 0; x < valueCount; x++)
   {
     String tmppubname = pubname;
-    tmppubname.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
+    tmppubname.replace(F("%measuretag%"), ExtraTaskSettings.TaskDeviceValueNames[x]);
     if (event->sensorType == SENSOR_TYPE_LONG)
       value = (unsigned long)UserVar[event->BaseVarIndex] + ((unsigned long)UserVar[event->BaseVarIndex + 1] << 16);
     else

@@ -33,7 +33,7 @@ boolean CPlugin_010(byte function, struct EventStruct *event, String& string)
     case CPLUGIN_PROTOCOL_TEMPLATE:
       {
         event->String1 = "";
-        event->String2 = F("%devicename%_%sensortag%_%measure%=%value%");
+        event->String2 = F("%devicename%_%sensortag%_%measuretag%=%value%");
         break;
       }
 
@@ -87,7 +87,7 @@ boolean C010_Send(struct EventStruct *event, byte varIndex, float value, unsigne
   msg.replace(F("%devicename%"), Settings.Name);
   msg.replace(F("%sensortag%"), ExtraTaskSettings.TaskDeviceName);
   msg.replace(F("%id%"), String(event->idx));
-  msg.replace(F("%measure%"), ExtraTaskSettings.TaskDeviceValueNames[varIndex]);
+  msg.replace(F("%measuretag%"), ExtraTaskSettings.TaskDeviceValueNames[varIndex]);
   if (longValue)
     msg.replace(F("%value%"), String(longValue));
   else

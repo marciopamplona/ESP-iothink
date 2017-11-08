@@ -106,6 +106,7 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
       String subscribed = ControllerSettings.Subscribe;
       subscribed.replace(F("%devicename%"), Settings.Name);
+      subscribed.replace(F("%chipid%"), String(ESP.getChipId(),HEX));
       subscribed.replace(F("/#"), "");
       subscribed.trim();
       subscribed += "/config";
@@ -175,7 +176,8 @@ void MQTTConnect()
   String LWTTopic = ControllerSettings.Subscribe;
   LWTTopic.replace(F("/#"), F("/status"));
   LWTTopic.replace(F("%devicename%"), Settings.Name);
-
+  LWTTopic.replace(F("%chipid%"), String(ESP.getChipId(),HEX));
+  
   for (byte x = 1; x < 3; x++)
   {
     String log = "";
@@ -192,6 +194,7 @@ void MQTTConnect()
       addLog(LOG_LEVEL_INFO, log);
       subscribeTo = ControllerSettings.Subscribe;
       subscribeTo.replace(F("%devicename%"), Settings.Name);
+      subscribeTo.replace(F("%chipid%"), String(ESP.getChipId(),HEX));
       MQTTclient.subscribe(subscribeTo.c_str());
       log = F("Subscribed to: ");
       log += subscribeTo;

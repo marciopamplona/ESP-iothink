@@ -33,7 +33,7 @@ boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
     case CPLUGIN_PROTOCOL_TEMPLATE:
       {
         event->String1 = F("/Home/#");
-        event->String2 = F("/hooks/devices/%id%/SensorData/%measure%");
+        event->String2 = F("/hooks/devices/%id%/SensorData/%measuretag%");
         break;
       }
 

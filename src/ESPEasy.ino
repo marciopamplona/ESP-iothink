@@ -65,8 +65,8 @@
 
 #define DEFAULT_CONTROLLER   true              // true or false enabled or disabled, set 1st controller defaults
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
-#define DEFAULT_SUB         "/0000/000/%devicename%/write/#" // Enter your sub
-#define DEFAULT_PUB         "/0000/000/%devicename%/%systime%/%sensortag%/%measure%" // Enter your pub
+#define DEFAULT_SUB         "/%chipid%/write/#" // Enter your sub
+#define DEFAULT_PUB         "/%chipid%/%systime%/%sensortag%/%measuretag%" // Enter your pub
 #define DEFAULT_SERVER      "192.168.1.20"       // Enter your Server IP address
 #define DEFAULT_PORT        1883                // Enter your Server port value
 
