@@ -982,9 +982,6 @@ void ResetFactory(void)
   fname=F("notification.dat");
   InitFile(fname.c_str(), 4096);
 
-  fname=F("rules1.txt");
-  InitFile(fname.c_str(), 0);
-
   fname=F("mqtt-datalog-spiffs.unsent");
   InitFile(fname.c_str(), 0);
 
@@ -1013,13 +1010,15 @@ void ResetFactory(void)
   Settings.Pin_sd_cs       = -1;
   Settings.Protocol[0]        = DEFAULT_PROTOCOL;
   strcpy_P(Settings.Name, PSTR(DEFAULT_NAME));
-  Settings.SerialLogLevel  = 2;
+  Settings.SerialLogLevel  = 4;
   Settings.WebLogLevel     = 2;
   Settings.BaudRate        = 115200;
   Settings.MessageDelay = 0;
   Settings.deepSleep = false;
   Settings.CustomCSS = false;
   Settings.InitSPI = false;
+  Settings.UseValueLogger = true;
+
   for (byte x = 0; x < TASKS_MAX; x++)
   {
     Settings.TaskDevicePin1[x] = -1;
@@ -2258,10 +2257,13 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       addLog(LOG_LEVEL_DEBUG, logger);
 
       memLogStruct data;
-      data.taskIndex = taskIndex;
-      data.deviceValueName = deviceValueName;
+      // data.taskIndex = taskIndex;
+      // data.deviceValueName = deviceValueName;
+      data.byteIndex[0] = taskIndex;
+      data.byteIndex[1] = deviceValueName;
       data.epoch = epoch;
-      data.value = value;
+      data.IndexValue[1] = doubleToShort(value,2);
+
       String err;
       byte *pointerToByteToSave = (byte*)&data;
       int datasize = sizeof(struct memLogStruct);
@@ -2382,7 +2384,7 @@ void sendMqttLog(){
         
         int byteCopyIdx = 0;
         boolean publishResult = false;
-        // Byte copy
+
         for (unsigned long  x = 1; (x <= datasize); x++)
         {
           byteread = f.read();
@@ -2394,7 +2396,7 @@ void sendMqttLog(){
 
           *(byteBuf+byteCopyIdx) = byteread;
           byteCopyIdx++;
-
+          
           if ((x % structSize)==0) {
             // log = String("Seek position number: ") + x + ": ";
             // log += String("taskIndex: ") + dataChunk.taskIndex + "\n";
@@ -2414,7 +2416,7 @@ void sendMqttLog(){
               break;
             }
 
-            temp = publishStringMount(0, dataChunk.taskIndex, dataChunk.deviceValueName, dataChunk.epoch, dataChunk.value);
+            temp = publishStringMount(0, dataChunk.byteIndex[0], dataChunk.byteIndex[1], dataChunk.epoch, shortToDouble(dataChunk.IndexValue[1],2));
             log += temp + String("\n");
             mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
             mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);

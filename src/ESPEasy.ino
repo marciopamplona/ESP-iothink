@@ -299,6 +299,8 @@ boolean lostPower;
 int RtcHardware = 0;
 RtcDS3231<TwoWire> Rtc(Wire);
 
+#include "shortFixedPoint.h"
+
 // Setup DNS, only used if the ESP has no valid WiFi config
 const byte DNS_PORT = 53;
 IPAddress apIP(192, 168, 4, 1);
@@ -650,12 +652,17 @@ class __FlashStringHelper;
 #define FPSTR(pstr_pointer) (reinterpret_cast<const __FlashStringHelper *>(pstr_pointer))
 #define F(string_literal) (FPSTR(PSTR(string_literal)))
 
-// 16 bytes
+
+// 12 bytes
+// Union: manobra para driblar o padding
 struct memLogStruct {
-  uint8_t taskIndex; // Sensortag retrieve
-  uint8_t deviceValueName; // Measure retrieve
-  unsigned long epoch;
-  double value;
+  union {
+    short IndexValue[2]; // 0 = index : 1 = value
+    uint8_t byteIndex[4];
+  };
+  //uint8_t taskIndex; // Sensortag retrieve
+  //uint8_t deviceValueName; // Measure retrieve
+  uint32_t epoch;
 };
 
 boolean WebServerInitialized = false;
@@ -674,8 +681,6 @@ void setup()
 
   initLog();
 
-  
-
   if (SpiffsSectors() < 32)
   {
     Serial.println(F("\nNo (or too small) SPIFFS area..\nSystem Halted\nPlease reflash with 128k SPIFFS minimum!"));
@@ -689,6 +694,23 @@ void setup()
   log += BUILD_GIT;
   addLog(LOG_LEVEL_INFO, log);
   addLog(LOG_LEVEL_INFO, String(F("INIT: Compile time "))+getDateTimeStringN(compileTime));
+
+  // memLogStruct tt;
+  // byte byteread = 0;
+  // byte *byteBuf = (byte*)&tt;
+  // char hexvalue[3]={0};
+  // tt.byteIndex[0] = 0x01;
+  // tt.byteIndex[1] = 0x02;
+  // tt.epoch = 0x03040506;
+  // tt.IndexValue[1] = 0x0708;
+
+  // addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(memLogStruct)));
+  
+  // for (int i=0; i<sizeof(memLogStruct); i++){
+  //   byteread = *(byteBuf+i);
+  //   sprintf(hexvalue, "%02X ",byteread);
+  //   addLog(LOG_LEVEL_INFO, String(hexvalue)+" ");
+  // }
 
   //warm boot
   if (readFromRTC())
