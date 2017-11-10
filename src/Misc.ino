@@ -519,6 +519,19 @@ unsigned long spiffsFreeSpace() {
   return fs_info.totalBytes-fs_info.usedBytes;
 }
 
+unsigned long sdcardFreeSpace(){
+  // Retorna o número de BLOCKS livres, que por padrão é de 512 bytes
+  //
+  // Teste com um dos cartões:
+  // Cada CLUSTER é de 8 BLOCKS
+  // Cada BLOCK é de 512 bytes
+  // Portanto o mínimo de bytes ocupados a cada gravação no cartão são 4096 bytes
+  
+  unsigned long blocksFree = SD.vol()->freeClusterCount() * SD.vol()->blocksPerCluster();
+  //addLog(LOG_LEVEL_DEBUG, String(F("Free blocks: "))+String(blocksFree));
+  return blocksFree;
+}
+
 unsigned long unsentFileSize(boolean spiffsOnTrue) {
   unsigned long size = 0;
   int datasize = sizeof(memLogStruct);
@@ -1120,9 +1133,8 @@ void initLog()
   //make sure addLog doesnt do any stuff before initalisation of Settings is complete.
   Settings.UseSerial=true;
   Settings.SyslogLevel=0;
-  Settings.SerialLogLevel=2; //logging during initialisation
+  Settings.SerialLogLevel=4; //logging during initialisation
   Settings.WebLogLevel=2;
-  Settings.SDLogLevel=0;
   for (int l=0; l<10; l++)
   {
     Logging[l].Message=0;
@@ -1168,19 +1180,6 @@ void addLog(byte loglevel, const char *line)
 
   }
 
-  // if (loglevel <= Settings.SDLogLevel)
-  // {
-  //   String filename = getDateString('-');
-  //   filename += "-log.txt";
-  //   File logFile = SD.open(filename, FILE_WRITE);
-  //   if (logFile){
-  //     logFile.println(line);
-  //   } else {
-  //     Settings.SDLogLevel = 0;
-  //     addLog(LOG_LEVEL_ERROR,"LOGGER: error saving in SD card");
-  //   }
-  //   logFile.close();
-  // }
 }
 
 

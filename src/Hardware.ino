@@ -83,7 +83,13 @@ void hardwareInit()
     {
       String log = F("SD   : Init OK");
       sdcardEnabled = true;
+
+      uint32_t volFree = SD.vol()->freeClusterCount();
+      log += String(F(" - freeClusters: ")) +  String(volFree);
+      double fs = 0.00048828125*volFree*SD.vol()->blocksPerCluster();
+      log += String(F(" - freeSpace: ")) + fs + F("MB");
       addLog(LOG_LEVEL_INFO, log);
+
     }
     else
     {

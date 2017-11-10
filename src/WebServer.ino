@@ -120,7 +120,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
               "{{css}}"
               "</head>"
               "<body>"
-              "<h1>Welcome to IOTHINK sensores AP</h1>"
+              "<h1>Welcome to IOTHINK AP ({{chipid}})</h1>"
               "{{error}}"
               "{{content}}"
               "<BR><h6>Powered by www.desto.com.br</h6>"
@@ -136,7 +136,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
               "{{css}}"
               "</head>"
               "<body>"
-              "<h1>IOTHINK sensores: {{name}}</h1>"
+              "<h1>IOTHINK: {{name}} ({{chipid}})</h1>"
               "{{error}}"
               "{{content}}"
               "<BR><h6>Powered by www.desto.com.br</h6>"
@@ -154,7 +154,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
       "</head>"
       "<body class='bodymenu'>"
         "<header class='headermenu'>"
-          "<h1>IOTHINK sensores: {{name}} {{logo}}</h1>"
+          "<h1>{{logo}} IOTHINK: {{name}} ({{chipid}})</h1>"
           "{{menu}}"
         "</header>"
         "{{error}}"
@@ -269,6 +269,11 @@ void getWebPageTemplateVar(const String& varName, String& varValue)
     varValue = Settings.Name;
   }
 
+  if (varName == F("chipid"))
+  {
+    varValue = String(ESP.getChipId(), HEX);
+  }
+
   else if (varName == F("unit"))
   {
     varValue = Settings.Unit;
@@ -309,9 +314,9 @@ void getWebPageTemplateVar(const String& varName, String& varValue)
 
   else if (varName == F("logo"))
   {
-    if (SPIFFS.exists("esp.png"))
+    if (SPIFFS.exists("logo.png"))
     {
-      varValue = F("<img src=\"esp.png\" width=48 height=48 align=right>");
+      varValue = F("<img src=\"logo.png\" width=48 height=48 align=right>");
     }
   }
 
@@ -2962,7 +2967,7 @@ void handle_advanced() {
   String useserial = WebServer.arg(F("useserial"));
   String serialloglevel = WebServer.arg(F("serialloglevel"));
   String webloglevel = WebServer.arg(F("webloglevel"));
-  String sdloglevel = WebServer.arg(F("sdloglevel"));
+  //String sdloglevel = WebServer.arg(F("sdloglevel"));
   String baudrate = WebServer.arg(F("baudrate"));
   String usentp = WebServer.arg(F("usentp"));
   String wdi2caddress = WebServer.arg(F("wdi2caddress"));
@@ -2997,7 +3002,7 @@ void handle_advanced() {
     Settings.UseSerial = (useserial == "on");
     Settings.SerialLogLevel = serialloglevel.toInt();
     Settings.WebLogLevel = webloglevel.toInt();
-    Settings.SDLogLevel = sdloglevel.toInt();
+    //Settings.SDLogLevel = sdloglevel.toInt();
     Settings.UseValueLogger = isFormItemChecked(F("valuelogger"));
     Settings.BaudRate = baudrate.toInt();
     Settings.UseNTP = (usentp == "on");
@@ -3047,7 +3052,7 @@ void handle_advanced() {
 
   addFormNumericBox(reply, F("Serial log Level"), F("serialloglevel"), Settings.SerialLogLevel, 0, 4);
   addFormNumericBox(reply, F("Web log Level"), F("webloglevel"), Settings.WebLogLevel, 0, 4);
-  addFormNumericBox(reply, F("SD Card log Level"), F("sdloglevel"), Settings.SDLogLevel, 0, 4);
+  //addFormNumericBox(reply, F("SD Card log Level"), F("sdloglevel"), Settings.SDLogLevel, 0, 4);
 
   addFormCheckBox(reply, F("Data logger function"), F("valuelogger"), Settings.UseValueLogger);
 

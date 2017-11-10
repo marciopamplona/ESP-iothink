@@ -50,8 +50,6 @@
 // After loading firmware, issue a 'reset' command to load the defaults.
 
 #define DEFAULT_NAME        "Desto000X"         // Enter your device friendly name
-//#define DEFAULT_SSID        "IO_think"          // Enter your network SSID
-//#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
 #define DEFAULT_SSID        "IO_think"          // Enter your network SSID
 #define DEFAULT_KEY         "19092017"            // Enter your network WPA key
 #define DEFAULT_DELAY       1                  // Enter your Send delay in seconds
@@ -660,8 +658,6 @@ struct memLogStruct {
     short IndexValue[2]; // 0 = index : 1 = value
     uint8_t byteIndex[4];
   };
-  //uint8_t taskIndex; // Sensortag retrieve
-  //uint8_t deviceValueName; // Measure retrieve
   uint32_t epoch;
 };
 
