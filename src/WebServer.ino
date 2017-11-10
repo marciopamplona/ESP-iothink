@@ -2967,7 +2967,7 @@ void handle_advanced() {
   String useserial = WebServer.arg(F("useserial"));
   String serialloglevel = WebServer.arg(F("serialloglevel"));
   String webloglevel = WebServer.arg(F("webloglevel"));
-  //String sdloglevel = WebServer.arg(F("sdloglevel"));
+  String sdcardmqttlogger = WebServer.arg(F("sdcardmqttlogger"));
   String baudrate = WebServer.arg(F("baudrate"));
   String usentp = WebServer.arg(F("usentp"));
   String wdi2caddress = WebServer.arg(F("wdi2caddress"));
@@ -3002,7 +3002,7 @@ void handle_advanced() {
     Settings.UseSerial = (useserial == "on");
     Settings.SerialLogLevel = serialloglevel.toInt();
     Settings.WebLogLevel = webloglevel.toInt();
-    //Settings.SDLogLevel = sdloglevel.toInt();
+    Settings.sdcardMQTTlogger = isFormItemChecked(F("sdcardmqttlogger"));
     Settings.UseValueLogger = isFormItemChecked(F("valuelogger"));
     Settings.BaudRate = baudrate.toInt();
     Settings.UseNTP = (usentp == "on");
@@ -3052,7 +3052,8 @@ void handle_advanced() {
 
   addFormNumericBox(reply, F("Serial log Level"), F("serialloglevel"), Settings.SerialLogLevel, 0, 4);
   addFormNumericBox(reply, F("Web log Level"), F("webloglevel"), Settings.WebLogLevel, 0, 4);
-  //addFormNumericBox(reply, F("SD Card log Level"), F("sdloglevel"), Settings.SDLogLevel, 0, 4);
+
+  addFormCheckBox(reply, F("SD Card MQTT string logger"), F("sdcardmqttlogger"), Settings.sdcardMQTTlogger);
 
   addFormCheckBox(reply, F("Data logger function"), F("valuelogger"), Settings.UseValueLogger);
 

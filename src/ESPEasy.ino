@@ -414,6 +414,7 @@ struct SettingsStruct
   char          htpHost[64];
   uint32_t      syncInterval;
   int8_t        samplesPerTx;
+  boolean       sdcardMQTTlogger;
   //its safe to extend this struct, up to several bytes, default values in config are 0
   //look in misc.ino how config.dat is used because also other stuff is stored in it at different offsets.
   //TODO: document config.dat somewhere here
@@ -664,6 +665,7 @@ struct memLogStruct {
 boolean WebServerInitialized = false;
 boolean MQTTconnected = false;
 boolean NextWakeRadioOn = true;
+unsigned long freeSpace = 0;
 
 /*********************************************************************************************\
  * SETUP
@@ -788,6 +790,11 @@ void setup()
   if (Settings.UseSerial && Settings.SerialLogLevel >= LOG_LEVEL_DEBUG_MORE) Serial.setDebugOutput(true);
 
   hardwareInit();
+
+  log = F("INIT: free space for data logging: ");
+  log += String(freeSpace)+F(" bytes");
+  addLog(LOG_LEVEL_INFO, log);
+
   log = "INIT: Reading Counter: ";
   log += RTC.readCounter;
   log += " - Sync Counter: ";
@@ -799,7 +806,6 @@ void setup()
   } else {
     log += String(unsentFileSize(true));
   }
-
   addLog(LOG_LEVEL_INFO, log);
 
 /////////////////////////////////////// RTC CHECKS

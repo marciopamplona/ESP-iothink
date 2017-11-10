@@ -503,6 +503,7 @@ void fileSystemCheck()
       ResetFactory();
     }
     f.close();
+    freeSpace = fs_info.totalBytes - fs_info.usedBytes;
   }
   else
   {
@@ -547,13 +548,16 @@ unsigned long unsentFileSize(boolean spiffsOnTrue) {
     
   } else {
     SdFile f;
-    f.open("mqtt-datalog-sdcard.unsent", O_READ);
-    size = f.fileSize();
-    f.close();
-    // if (size % datasize != 0){
-    //   addLog(LOG_LEVEL_DEBUG, F("INIT: wrong unsent file size in SDCARD, removing..."));
-    // }
-    // SD.remove("mqtt-datalog-sdcard.unsent");
+    if (f.open("mqtt-datalog-sdcard.unsent", O_READ)){
+      size = f.fileSize();
+      f.close();
+    } else {
+      size = 0;
+    }
+    if (size % datasize != 0){
+      addLog(LOG_LEVEL_DEBUG, F("INIT: wrong unsent file size in SDCARD, removing..."));
+      SD.remove("mqtt-datalog-sdcard.unsent");
+    }
   }
   return size;
 }
@@ -1031,6 +1035,7 @@ void ResetFactory(void)
   Settings.CustomCSS = false;
   Settings.InitSPI = false;
   Settings.UseValueLogger = true;
+  Settings.sdcardMQTTlogger = false;
 
   for (byte x = 0; x < TASKS_MAX; x++)
   {
@@ -2227,49 +2232,78 @@ String publishStringMount(byte controller, byte TaskIndex, byte deviceValueName,
 
 void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueName, uint32_t epoch)
 {
+  memLogStruct data;
+  data.byteIndex[0] = taskIndex;
+  data.byteIndex[1] = deviceValueName;
+  data.epoch = epoch;
+  data.IndexValue[1] = doubleToShort(value,2);
+  byte *pointerToByteToSave = (byte*)&data;
+  int datasize = sizeof(struct memLogStruct);
+  unsigned long filesize = 0;
+  String logger;
+
   if (sdcardEnabled){
-    String logger;
-    logger = publish;
-    logger += ';';
-    logger += String(value);
-    addLog(LOG_LEVEL_DEBUG, logger);
+    if ((freeSpace > 4096) && Settings.sdcardMQTTlogger) {
+      logger = "MQTT logger: logging to SDCARD [";
+      logger += publish;
+      logger += ';';
+      logger += String(value);
+      logger += ']';
+      addLog(LOG_LEVEL_DEBUG, logger);
 
-    String filename = getDateString('-') + F("-mqtt-datalog.csv");
-    SdFile logFile;
-    logFile.open(filename.c_str(),  O_CREAT | O_WRITE | O_APPEND);
-    if (logFile.isOpen()) logFile.println(logger);
-    logFile.flush();
-    logFile.close();
+      String filename = getDateString('-') + F("-mqtt-datalog.csv");
+      SdFile logFile;
+      logFile.open(filename.c_str(),  O_CREAT | O_WRITE | O_APPEND);
 
+      if (logFile.isOpen()) {
+        logger = publish + ';' + String(value);
+        logFile.println(logger);
+      }
+
+      logFile.flush();
+      logFile.close();
+    }
+    
     // Cria arquivo de não enviado, somente se não houver internet
     if (logData){
-      SdFile unsentFile;
-      unsentFile.open("mqtt-datalog-sdcard.unsent",  O_CREAT | O_WRITE | O_APPEND);
-      if (unsentFile.isOpen()) unsentFile.println(logger);
-      unsentFile.flush();
+      FatFile unsentFile;
+      unsentFile.open("mqtt-datalog-sdcard.unsent",  O_CREAT | O_WRITE);
+      if (unsentFile.isOpen()) {
+        logger = "MQTT logger: logging to SDCARD [";
+        logger += String(taskIndex)+";"+String(deviceValueName)+";"+String(epoch)+";"+String(value);
+        logger += ']';
+        addLog(LOG_LEVEL_DEBUG, logger);
+
+        filesize = unsentFile.fileSize();
+
+        if (freeSpace <= 4096) {
+          // Caso não haja espaço, recomeça a gravar do início do arquivo
+          unsentFile.seekSet(0);
+        } else {
+          unsentFile.seekSet(filesize);
+        }
+
+        for (int x = 0; x < datasize ; x++)
+        {
+          if(!(unsentFile.write(*pointerToByteToSave))){
+            addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SDCARD (write)"));
+            break;         
+          }
+          pointerToByteToSave++;
+          unsentFile.seekEnd();
+        }
+      }
       unsentFile.close();
     }
+
   } else {
     if (logData){
-      String logger;
       logger = "MQTT logger: logging to internal memory [";
       logger += String(taskIndex)+";"+String(deviceValueName)+";"+String(epoch)+";"+String(value);
       logger += ']';
       addLog(LOG_LEVEL_DEBUG, logger);
 
-      memLogStruct data;
-      // data.taskIndex = taskIndex;
-      // data.deviceValueName = deviceValueName;
-      data.byteIndex[0] = taskIndex;
-      data.byteIndex[1] = deviceValueName;
-      data.epoch = epoch;
-      data.IndexValue[1] = doubleToShort(value,2);
-
-      String err;
-      byte *pointerToByteToSave = (byte*)&data;
-      int datasize = sizeof(struct memLogStruct);
       fs::File f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
-      unsigned long filesize = 0;
       
       if (flashGuard().length()>0){
         String error = flashGuard();
@@ -2317,55 +2351,90 @@ void sendMqttLog(){
     char line[200];
     String logger = "\n";
     String mqttString[2];
+    int structSize = sizeof(struct memLogStruct);
+    String temp;
+    memLogStruct dataChunk;
+    byte byteread = 0;
+    byte *byteBuf = (byte*)&dataChunk;
+    String log;
+    int byteCopyIdx = 0;
+    boolean publishResult = false;
 
     if (sdcardEnabled){
-      SdFile logFile;
-      int openCode = logFile.open("mqtt-datalog-sdcard.unsent", O_READ);
+      unsigned long datasize = unsentFileSize(false);
       
-      if ((logFile.fileSize()>10) && (openCode > 0)){
+      if (datasize>structSize){
+        SdFile logFile;
+        logFile.open("mqtt-datalog-sdcard.unsent", O_READ);
         unsigned long lineNumber = 1;
         unsigned long n;
         addLog(LOG_LEVEL_DEBUG, "MQTT: reading unsent file from SDCARD...");
         
-        // read lines from the file
-        while ((n = logFile.fgets(line, sizeof(line))) > 30) { // Melhorar essa checagem de consistência
-          if ((line[n - 1] == '\n')) {
-            logger += F("MQTT: reading line ");
-            logger +=  lineNumber;
-            logger += F(":> ");
-            logger += String(line);
-            mqttString[0] = String(line).substring(0,String(line).lastIndexOf(';'));
-            mqttString[1] = String(line).substring(String(line).lastIndexOf(';')+1);
-            
-            MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
-          } else {
-            logger += F("MQTT: ERROR reading line #");
-            logger +=  lineNumber;
-            logger += F(":> ");
-            logger += String(line);
-          }
-          lineNumber++;
+        if (!logFile.isOpen()){
+          addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SDCARD (open)"));
+          goto sdcardfail;
         }
+
+        if (!logFile.seekSet(0)){
+          addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SDCARD (seek)"));
+          goto sdcardfail;
+        }
+
+        for (unsigned long  x = 1; (x <= datasize); x++)
+        {
+          byteread = logFile.read();
+          if(byteread<0){
+            addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SDCARD (read)"));
+            logFile.close();
+            goto sdcardfail;
+          }
+
+          *(byteBuf+byteCopyIdx) = byteread;
+          byteCopyIdx++;
+          
+          if ((x % structSize)==0) {
+            if (dataChunk.epoch < clockCompare-(Settings.TimeZone*60UL)){
+              log = F("MQTT sender: ERROR reading unsent file, registry epoch: ");
+              log += String(dataChunk.epoch);
+              log += F(" - compile time: ");
+              log += String(clockCompare);
+              addLog(LOG_LEVEL_DEBUG, log);
+              goto removefile;
+            }
+
+            temp = publishStringMount(0, dataChunk.byteIndex[0], dataChunk.byteIndex[1], dataChunk.epoch, shortToDouble(dataChunk.IndexValue[1],2));
+            log += temp + String("\n");
+            mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
+            mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
+            publishResult = MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
+            if (!publishResult){
+              addLog(LOG_LEVEL_DEBUG,F("MQTT sender: ERROR transmitting unsent file, aborting..."));
+              break;
+            }
+            byteCopyIdx = 0;
+          }
+        }
+        
+        log += "\n\n";
+        addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
+
+        removefile:
         logFile.close();
+        
         // Remove files from current directory.
         if (!SD.remove("mqtt-datalog-sdcard.unsent")) {
-          logger += F("MQTT: ERROR removing unsent file");
+          log += F("MQTT: ERROR removing unsent file");
+          addLog(LOG_LEVEL_DEBUG, log);
         }
-        addLog(LOG_LEVEL_DEBUG, logger);
-      } else {
-        logFile.close();
+
+        sdcardfail:
+        boolean donothing;
       }
     } else {
       unsigned long datasize = unsentFileSize(true);
-      int structSize = sizeof(struct memLogStruct);
 
       if (datasize >= structSize){
-        String temp;
-        memLogStruct dataChunk;
-        byte byteread = 0;
-        byte *byteBuf = (byte*)&dataChunk;
-        String log;
-        
+       
         addLog(LOG_LEVEL_DEBUG, "MQTT sender: reading unsent file from SPIFFS...");
         
         fs::File f = SPIFFS.open("mqtt-datalog-spiffs.unsent", "r+");
@@ -2375,16 +2444,11 @@ void sendMqttLog(){
           goto fail;
         }
       
-        addLog(LOG_LEVEL_INFO, String(F("FILE : File size "))+f.size()+F(" bytes"));
-
         if (!(f.seek(0, fs::SeekSet))){
           addLog(LOG_LEVEL_DEBUG, F("MQTT sender: error reading unsent data in SPIFFS (seek)"));
           f.close();
           goto fail;
         }
-        
-        int byteCopyIdx = 0;
-        boolean publishResult = false;
 
         for (unsigned long  x = 1; (x <= datasize); x++)
         {
@@ -2399,13 +2463,6 @@ void sendMqttLog(){
           byteCopyIdx++;
           
           if ((x % structSize)==0) {
-            // log = String("Seek position number: ") + x + ": ";
-            // log += String("taskIndex: ") + dataChunk.taskIndex + "\n";
-            // log += String("deviceValueName: ") + dataChunk.deviceValueName + "\n";
-            // log += String("epoch: ") + dataChunk.epoch + "\n";
-            // log += String("value: ") + dataChunk.value + "\n";
-            // addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
-
             if (dataChunk.epoch < clockCompare-(Settings.TimeZone*60UL)){
               log = F("MQTT sender: ERROR reading unsent file, registry epoch: ");
               log += String(dataChunk.epoch);
@@ -2431,8 +2488,8 @@ void sendMqttLog(){
         }
 
         log += "\n\n";
-
         addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
+
         f.close();
         if (publishResult) SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
       }
