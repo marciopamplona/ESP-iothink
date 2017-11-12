@@ -3198,14 +3198,17 @@ void handle_upload_post() {
 //********************************************************************************
 // Web Interface upload handler
 //********************************************************************************
-fs::File uploadFile;
+// TODO : Não está funcionando corretamente pra arquivos grandes.
 void handleFileUpload() {
-  if (!isLoggedIn()) return;
 
+  if (!isLoggedIn()) return;
+  static unsigned long uploadFileTotal;
+  static fs::File uploadFile;
   static boolean valid = false;
+  size_t tamanho = 0;
   String log = "";
 
-  HTTPUpload& upload = WebServer.upload();
+  static HTTPUpload& upload = WebServer.upload();
 
   if (upload.filename.c_str()[0] == 0)
   {
@@ -3247,20 +3250,33 @@ void handleFileUpload() {
       }
       if (valid)
       {
+        uploadFileTotal = 0;
         // once we're safe, remove file and create empty one...
         SPIFFS.remove((char *)upload.filename.c_str());
-        uploadFile = SPIFFS.open(upload.filename.c_str(), "w");
+        uploadFile = SPIFFS.open(upload.filename.c_str(), "w+");
         // dont count manual uploads: flashCount();
       }
     }
-    if (uploadFile) uploadFile.write(upload.buf, upload.currentSize);
+    uploadFileTotal += upload.currentSize;
+    
+    if (uploadFile) 
+    {
+      //uploadFile.seek(uploadFileTotal,fs::SeekSet);
+      tamanho = uploadFile.write(upload.buf, upload.currentSize);
+      addLog(LOG_LEVEL_INFO, 
+      String("Upload FILE total: ")+String(uploadFileTotal)+
+      String(" - http upload size: ")+String(upload.currentSize)+
+      String(" - Write size: ")+String(tamanho));
+      
+    }
     log = F("Upload: WRITE, Bytes: ");
     log += upload.currentSize;
     addLog(LOG_LEVEL_INFO, log);
   }
   else if (upload.status == UPLOAD_FILE_END)
   {
-    if (uploadFile) uploadFile.close();
+    uploadFile.flush();
+    uploadFile.close();
     log = F("Upload: END, Size: ");
     log += upload.totalSize;
     addLog(LOG_LEVEL_INFO, log);

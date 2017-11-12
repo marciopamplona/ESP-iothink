@@ -555,7 +555,7 @@ unsigned long unsentFileSize(boolean spiffsOnTrue) {
       size = 0;
     }
     if (size % datasize != 0){
-      addLog(LOG_LEVEL_DEBUG, F("INIT: wrong unsent file size in SDCARD, removing..."));
+      addLog(LOG_LEVEL_DEBUG, String(F("INIT: wrong unsent file size in SDCARD, removing..."))+String(size));
       SD.remove("mqtt-datalog-sdcard.unsent");
     }
   }
@@ -2240,6 +2240,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
   byte *pointerToByteToSave = (byte*)&data;
   int datasize = sizeof(struct memLogStruct);
   unsigned long filesize = 0;
+  static unsigned long seekPosition;
   String logger;
 
   if (sdcardEnabled){
@@ -2269,18 +2270,20 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       FatFile unsentFile;
       unsentFile.open("mqtt-datalog-sdcard.unsent",  O_CREAT | O_WRITE);
       if (unsentFile.isOpen()) {
-        logger = "MQTT logger: logging to SDCARD [";
+        logger = "MQTT logger: logging to internal memory [";
         logger += String(taskIndex)+";"+String(deviceValueName)+";"+String(epoch)+";"+String(value);
         logger += ']';
         addLog(LOG_LEVEL_DEBUG, logger);
+        
+        if (unsentFile.fileSize() == 0) seekPosition = 0;
 
-        filesize = unsentFile.fileSize();
+        unsentFile.seekSet(seekPosition);
 
-        if (freeSpace <= 4096) {
-          // Caso não haja espaço, recomeça a gravar do início do arquivo
-          unsentFile.seekSet(0);
+        // Se não houver espaço, recomeça a gravar no início do arquivo
+        if ((seekPosition + datasize*4 > freeSpace)){
+          seekPosition = 0;
         } else {
-          unsentFile.seekSet(filesize);
+          seekPosition+=datasize;
         }
 
         for (int x = 0; x < datasize ; x++)
@@ -2290,7 +2293,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
             break;         
           }
           pointerToByteToSave++;
-          unsentFile.seekEnd();
+          //unsentFile.seekEnd();
         }
       }
       unsentFile.close();
@@ -2313,6 +2316,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       
       if (!f) {
         InitFile(String("mqtt-datalog-spiffs.unsent").c_str(), 0);
+        seekPosition = 0;
         f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: creating unsent file in SPIFFS..."));
         if (!f) {
@@ -2320,13 +2324,18 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
           goto fail;
         }
       }
-    
-      filesize = f.size();
-
-      if (!(f.seek(filesize, fs::SeekSet))){
+      
+      if (!(f.seek(seekPosition, fs::SeekSet))){
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (seek)"));
         f.close();
         goto fail;
+      }
+
+      // Se não houver espaço, recomeça a gravar no início do arquivo
+      if ((seekPosition + datasize*4 > freeSpace)){
+        seekPosition = 0;
+      } else {
+        seekPosition+=datasize;
       }
 
       for (int x = 0; x < datasize ; x++)

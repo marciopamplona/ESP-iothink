@@ -652,7 +652,7 @@ class __FlashStringHelper;
 #define F(string_literal) (FPSTR(PSTR(string_literal)))
 
 
-// 12 bytes
+// 8 bytes
 // Union: manobra para driblar o padding
 struct memLogStruct {
   union {
@@ -666,6 +666,7 @@ boolean WebServerInitialized = false;
 boolean MQTTconnected = false;
 boolean NextWakeRadioOn = true;
 unsigned long freeSpace = 0;
+
 
 /*********************************************************************************************\
  * SETUP
@@ -948,6 +949,8 @@ void setup()
   }
 
   writeDefaultCSS();
+  
+
 }
 
 
