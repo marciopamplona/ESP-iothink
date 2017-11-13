@@ -538,9 +538,9 @@ struct RTCStruct
   unsigned long flashCounter;
   unsigned long bootCounter;
   unsigned long readCounter;
-  unsigned long syncCounter; // 16 + 7 bytes = 23 bytes
+  unsigned long syncCounter;
   unsigned long nextSyncTime;
-  //unsigned long unsentIndex;
+  unsigned long seekPosition;
 } RTC;
 
 int deviceCount = -1;

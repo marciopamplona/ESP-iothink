@@ -2210,7 +2210,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
   byte *pointerToByteToSave = (byte*)&data;
   int datasize = sizeof(struct memLogStruct);
   unsigned long filesize = 0;
-  static unsigned long seekPosition;
+  //static unsigned long seekPosition;
   String logger;
 
   if (sdcardEnabled){
@@ -2245,15 +2245,15 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         logger += ']';
         addLog(LOG_LEVEL_DEBUG, logger);
         
-        if (unsentFile.fileSize() == 0) seekPosition = 0;
+        if (unsentFile.fileSize() == 0) RTC.seekPosition = 0;
 
-        unsentFile.seekSet(seekPosition);
+        unsentFile.seekSet(RTC.seekPosition);
 
         // Se não houver espaço, recomeça a gravar no início do arquivo
-        if ((seekPosition + datasize*4 > freeSpace)){
-          seekPosition = 0;
+        if ((RTC.seekPosition + datasize*4 > freeSpace)){
+          RTC.seekPosition = 0;
         } else {
-          seekPosition+=datasize;
+          RTC.seekPosition+=datasize;
         }
 
         for (int x = 0; x < datasize ; x++)
@@ -2286,7 +2286,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       
       if (!f) {
         InitFile(String("mqtt-datalog-spiffs.unsent").c_str(), 0);
-        seekPosition = 0;
+        RTC.seekPosition = 0;
         f = SPIFFS.open((char*)"mqtt-datalog-spiffs.unsent", "r+");
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: creating unsent file in SPIFFS..."));
         if (!f) {
@@ -2295,17 +2295,23 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         }
       }
       
-      if (!(f.seek(seekPosition, fs::SeekSet))){
+      logger = String(F("Seek position: "));
+      logger += RTC.seekPosition;
+      logger += String(F(" freeSpace: "));
+      logger += freeSpace;
+      addLog(LOG_LEVEL_DEBUG, logger);
+
+      if (!(f.seek(RTC.seekPosition, fs::SeekSet))){
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (seek)"));
         f.close();
         goto fail;
       }
 
       // Se não houver espaço, recomeça a gravar no início do arquivo
-      if ((seekPosition + datasize*4 > freeSpace)){
-        seekPosition = 0;
+      if ((RTC.seekPosition + datasize*4 > freeSpace)){
+        RTC.seekPosition = 0;
       } else {
-        seekPosition+=datasize;
+        RTC.seekPosition+=datasize;
       }
 
       for (int x = 0; x < datasize ; x++)
