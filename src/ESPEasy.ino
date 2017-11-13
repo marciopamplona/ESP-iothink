@@ -65,7 +65,7 @@
 // using a default template, you also need to set a DEFAULT PROTOCOL to a suitable MQTT protocol !
 #define DEFAULT_SUB         "/%chipid%/write/#" // Enter your sub
 #define DEFAULT_PUB         "/%chipid%/%systime%/%sensortag%/%measuretag%" // Enter your pub
-#define DEFAULT_SERVER      "192.168.1.20"       // Enter your Server IP address
+#define DEFAULT_SERVER      "192.168.1.20"      // Enter your Server IP address
 #define DEFAULT_PORT        1883                // Enter your Server port value
 
 #define DEFAULT_PROTOCOL    6                   // Protocol used for controller communications
@@ -107,7 +107,7 @@
 // ********************************************************************************
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
-#define ESP_PROJECT_PID             20171112L
+#define ESP_PROJECT_PID             20171113L
 #define VERSION                             8
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
@@ -158,13 +158,6 @@
 #define CPLUGIN_WEBFORM_SAVE                6
 #define CPLUGIN_WEBFORM_LOAD                7
 
-#define NPLUGIN_PROTOCOL_ADD                1
-#define NPLUGIN_GET_DEVICENAME              2
-#define NPLUGIN_WEBFORM_SAVE                3
-#define NPLUGIN_WEBFORM_LOAD                4
-#define NPLUGIN_WRITE                       5
-#define NPLUGIN_NOTIFY                      6
-
 #define LOG_LEVEL_ERROR                     1
 #define LOG_LEVEL_INFO                      2
 #define LOG_LEVEL_DEBUG                     3
@@ -180,8 +173,7 @@
   #define DEVICES_MAX                      64
 #endif
 #define TASKS_MAX                           8 // max 12!
-#define CONTROLLER_MAX                      3 // max 4!
-#define NOTIFICATION_MAX                    3 // max 4!
+#define CONTROLLER_MAX                      1 // max 4!
 #define VARS_PER_TASK                       4
 #define PLUGIN_MAX                DEVICES_MAX
 #define PLUGIN_CONFIGVAR_MAX                8
@@ -189,7 +181,6 @@
 #define PLUGIN_CONFIGLONGVAR_MAX            4
 #define PLUGIN_EXTRACONFIGVAR_MAX          16
 #define CPLUGIN_MAX                        16
-#define NPLUGIN_MAX                         4
 #define UNIT_MAX                           32 // Only relevant for UDP unicast message 'sweeps' and the nodelist.
 #define RULES_TIMER_MAX                     8
 #define SYSTEM_TIMER_MAX                    8
@@ -242,11 +233,10 @@
 #define DAT_TASKS_CUSTOM_OFFSET          1024
 #define DAT_CUSTOM_CONTROLLER_SIZE       1024
 #define DAT_CONTROLLER_SIZE              1024
-#define DAT_NOTIFICATION_SIZE            1024
 
-#define DAT_OFFSET_TASKS                 4096  // each task = 2k, (1024 basic + 1024 bytes custom), 12 max
-#define DAT_OFFSET_CONTROLLER           28672  // each controller = 1k, 4 max
-#define DAT_OFFSET_CUSTOM_CONTROLLER    32768  // each custom controller config = 1k, 4 max.
+// #define DAT_OFFSET_TASKS                 4096  // each task = 2k, (1024 basic + 1024 bytes custom), 12 max
+// #define DAT_OFFSET_CONTROLLER           28672  // each controller = 1k, 4 max
+// #define DAT_OFFSET_CUSTOM_CONTROLLER    32768  // each custom controller config = 1k, 4 max.
 
 #include "lwip/tcp_impl.h"
 #include <ESP8266WiFi.h>
@@ -383,7 +373,6 @@ struct SettingsStruct
   boolean       MQTTRetainFlag;
   boolean       InitSPI;
   byte          Protocol[CONTROLLER_MAX];
-  byte          Notification[NOTIFICATION_MAX];
   byte          TaskDeviceNumber[TASKS_MAX];
   unsigned int  OLD_TaskDeviceID[TASKS_MAX];
   union {
@@ -406,7 +395,6 @@ struct SettingsStruct
   unsigned long TaskDeviceTimer[TASKS_MAX];
   boolean       TaskDeviceEnabled[TASKS_MAX];
   boolean       ControllerEnabled[CONTROLLER_MAX];
-  boolean       NotificationEnabled[NOTIFICATION_MAX];
   unsigned int  TaskDeviceID[CONTROLLER_MAX][TASKS_MAX];
   boolean       TaskDeviceSendData[CONTROLLER_MAX][TASKS_MAX];
   boolean       Pin_status_led_Inversed;
@@ -432,20 +420,6 @@ struct ControllerSettingsStruct
   char          Subscribe[129];
 };
 
-struct NotificationSettingsStruct
-{
-  char          Server[65];
-  unsigned int  Port;
-  char          Domain[65];
-  char          Sender[65];
-  char          Receiver[65];
-  char          Subject[129];
-  char          Body[513];
-  byte          Pin1;
-  byte          Pin2;
-  //its safe to extend this struct, up to 4096 bytes, default values in config are 0
-};
-
 struct ExtraTaskSettingsStruct
 {
   byte    TaskIndex;
@@ -463,8 +437,6 @@ struct EventStruct
   byte TaskIndex; // index position in TaskSettings array, 0-11
   byte ControllerIndex; // index position in Settings.Controller, 0-3
   byte ProtocolIndex; // index position in protocol array, depending on which controller plugins are loaded.
-  byte NotificationIndex; // index position in Settings.Notification, 0-3
-  byte NotificationProtocolIndex; // index position in notification array, depending on which controller plugins are loaded.
   byte BaseVarIndex;
   int idx;
   byte sensorType;
@@ -515,13 +487,6 @@ struct ProtocolStruct
   boolean usesTemplate;
   boolean usesID;
 } Protocol[CPLUGIN_MAX];
-
-struct NotificationStruct
-{
-  byte Number;
-  boolean usesMessaging;
-  byte usesGPIO;
-} Notification[NPLUGIN_MAX];
 
 struct NodeStruct
 {
@@ -580,7 +545,6 @@ struct RTCStruct
 
 int deviceCount = -1;
 int protocolCount = -1;
-int notificationCount = -1;
 
 boolean printToWeb = false;
 String printWebString = "";
@@ -616,9 +580,6 @@ byte Plugin_id[PLUGIN_MAX];
 boolean (*CPlugin_ptr[CPLUGIN_MAX])(byte, struct EventStruct*, String&);
 byte CPlugin_id[CPLUGIN_MAX];
 
-boolean (*NPlugin_ptr[NPLUGIN_MAX])(byte, struct EventStruct*, String&);
-byte NPlugin_id[NPLUGIN_MAX];
-
 String dummyString = "";
 
 byte lastBootCause = BOOT_CAUSE_MANUAL_REBOOT;
@@ -641,8 +602,7 @@ String lowestRAMfunction = "";
 
 // Compile time
 RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
-unsigned long clockCompare = compileTime.Epoch32Time(); // Friday, 13 de October de 2017 às 13:55:32
-//unsigned long clockCompare = 1507902932; // Friday, 13 de October de 2017 às 13:55:32
+unsigned long clockCompare = compileTime.Epoch32Time();
 uint32_t sysTime = 0;
 uint32_t sysTimeGMT = 0;
 
@@ -705,7 +665,7 @@ void setup()
   // tt.epoch = 0x03040506;
   // tt.IndexValue[1] = 0x0708;
 
-  // addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(SettingsStruct)));
+  addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(SettingsStruct)));
   
   // for (int i=0; i<sizeof(memLogStruct); i++){
   //   byteread = *(byteBuf+i);
@@ -917,7 +877,6 @@ void setup()
 
   PluginInit();
   CPluginInit();
-  NPluginInit();
   WifiDisconnect();
 
   if (!isDeepSleepEnabled()){

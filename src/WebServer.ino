@@ -53,7 +53,6 @@ void WebServerInit()
   WebServer.on("/controllers", handle_controllers);
   WebServer.on("/hardware", handle_hardware);
   WebServer.on("/devices", handle_devices);
-  WebServer.on("/notifications", handle_notifications);
   WebServer.on("/log", handle_log);
   WebServer.on("/tools", handle_tools);
   WebServer.on("/i2cscanner", handle_i2cscanner);
@@ -102,9 +101,9 @@ void sendWebPage(const String& tmplName, String& pageContent)
   {
     getWebPageTemplateDefault(tmplName, pageTemplate);
   }
+
   checkRAM(F("sendWebPage"));
   processAndSendWebPageTemplate(pageTemplate, pageContent);
-
   pageTemplate = F("");
   pageContent = F("");
 }
@@ -120,7 +119,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
               "{{css}}"
               "</head>"
               "<body>"
-              "<h1>Welcome to IOTHINK AP ({{chipid}})</h1>"
+              "<h1>Welcome to IOTHINK AP (ID {{chipid}})</h1>"
               "{{error}}"
               "{{content}}"
               "<BR><h6>Powered by www.desto.com.br</h6>"
@@ -136,7 +135,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
               "{{css}}"
               "</head>"
               "<body>"
-              "<h1>IOTHINK: {{name}} ({{chipid}})</h1>"
+              "<h1>IOTHINK: {{name}} (ID {{chipid}})</h1>"
               "{{error}}"
               "{{content}}"
               "<BR><h6>Powered by www.desto.com.br</h6>"
@@ -154,7 +153,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
       "</head>"
       "<body class='bodymenu'>"
         "<header class='headermenu'>"
-          "<h1>{{logo}} IOTHINK: {{name}} ({{chipid}})</h1>"
+        "<h1>IOTHINK: {{name}} (ID {{chipid}}) {{logo}}</h1>"
           "{{menu}}"
         "</header>"
         "{{error}}"
@@ -163,7 +162,7 @@ void getWebPageTemplateDefault(const String& tmplName, String& tmpl)
           "<h6>Powered by www.desto.com.br</h6>"
         "</footer>"
       "</body></html>"
-            );
+    );
   }
 }
 
@@ -180,6 +179,7 @@ void sendWebPageChunkedBegin(String& log)
 void sendWebPageChunkedData(String& log, String& data)
 {
   //checkRAM(F("sendWebPageChunkedData"));
+
   if (data.length() > 0)
   {
     log += F(" [");
@@ -194,6 +194,7 @@ void sendWebPageChunkedData(String& log, String& data)
     WebServer.sendContent("\r\n");
 
     data = F("");   //free RAM
+
   }
 }
 
@@ -215,7 +216,7 @@ void processAndSendWebPageTemplate(String& pageTemplate, String& pageContent)
   log += pageContent.length();
 
   sendWebPageChunkedBegin(log);   //prepare chunked send
-
+  
   while ((indexStart = pageTemplate.indexOf("{{")) >= 0)
   {
     pageResult += pageTemplate.substring(0, indexStart);
@@ -281,20 +282,19 @@ void getWebPageTemplateVar(const String& varName, String& varValue)
 
   else if (varName == F("menu"))
   {
-    static const __FlashStringHelper* gpMenu[8][2] = {
+    static const __FlashStringHelper* gpMenu[7][2] = {
       F("Main"), F("."),                      //0
       F("Config"), F("config"),               //1
       F("Controllers"), F("controllers"),     //2
       F("Hardware"), F("hardware"),           //3
       F("Devices"), F("devices"),             //4
       F("Rules"), F("rules"),                 //5
-      F("Notifications"), F("notifications"), //6
-      F("Tools"), F("tools"),                 //7
+      F("Tools"), F("tools"),                 //6
     };
 
     varValue += F("<div class='menubar'>");
 
-    for (byte i = 0; i < 8; i++)
+    for (byte i = 0; i < 7; i++)
     {
       if (i == 5)   //hide rules menu item
         continue;
@@ -355,10 +355,11 @@ void getWebPageTemplateVar(const String& varName, String& varValue)
 
   else
   {
-    String log = F("Templ: Unknown Var : ");
-    log += varName;
-    addLog(LOG_LEVEL_ERROR, log);
-    //no return string - eat var name
+    // String log = F("Templ: Unknown Var : ");
+    // log += varName;
+    // addLog(LOG_LEVEL_ERROR, log);
+    // //no return string - eat var name
+    // varValue = F("XXXXXXXXX");
   }
 }
 
@@ -432,9 +433,6 @@ void addFooter(String& str)
 //********************************************************************************
 void handle_root() {
   
-  // String logg = F("handle_root");
-  // addLog(LOG_LEVEL_INFO, logg);
-
   // if Wifi setup, launch setup wizard
   if (wifiSetup)
   {
@@ -603,6 +601,7 @@ void handle_root() {
 
     WebServer.send(200, "text/html", "OK");
   }
+
 }
 
 
@@ -928,198 +927,6 @@ void handle_controllers() {
   addFooter(reply);
   sendWebPage(F("TmplStd"), reply);
 }
-
-
-//********************************************************************************
-// Web Interface notifcations page
-//********************************************************************************
-void handle_notifications() {
-  if (!isLoggedIn()) return;
-
-  struct EventStruct TempEvent;
-  char tmpString[64];
-
-  navMenuIndex = 6;
-  String notificationindex = WebServer.arg(F("index"));
-  String notification = WebServer.arg(F("notification"));
-  String domain = WebServer.arg(F("domain"));
-  String server = WebServer.arg(F("server"));
-  String port = WebServer.arg(F("port"));
-  String sender = WebServer.arg(F("sender"));
-  String receiver = WebServer.arg(F("receiver"));
-  String subject = WebServer.arg(F("subject"));
-  String body = WebServer.arg(F("body"));
-  String pin1 = WebServer.arg(F("pin1"));
-  String pin2 = WebServer.arg(F("pin2"));
-  String notificationenabled = WebServer.arg(F("notificationenabled"));
-
-  String reply = "";
-  addHeader(true, reply);
-
-  byte index = notificationindex.toInt();
-
-  if (notification.length() != 0)
-  {
-    NotificationSettingsStruct NotificationSettings;
-    if (Settings.Notification[index - 1] != notification.toInt())
-    {
-      Settings.Notification[index - 1] = notification.toInt();
-      NotificationSettings.Domain[0] = 0;
-      NotificationSettings.Server[0] = 0;
-      NotificationSettings.Port = 0;
-      NotificationSettings.Sender[0] = 0;
-      NotificationSettings.Receiver[0] = 0;
-      NotificationSettings.Subject[0] = 0;
-      NotificationSettings.Body[0] = 0;
-    }
-    else
-    {
-      if (Settings.Notification != 0)
-      {
-        byte NotificationProtocolIndex = getNotificationIndex(Settings.Notification[index - 1]);
-        NPlugin_ptr[NotificationProtocolIndex](NPLUGIN_WEBFORM_SAVE, 0, dummyString);
-        NotificationSettings.Port = port.toInt();
-        NotificationSettings.Pin1 = pin1.toInt();
-        NotificationSettings.Pin2 = pin2.toInt();
-        Settings.NotificationEnabled[index - 1] = (notificationenabled == "on");
-        strncpy(NotificationSettings.Domain, domain.c_str(), sizeof(NotificationSettings.Domain));
-        strncpy(NotificationSettings.Server, server.c_str(), sizeof(NotificationSettings.Server));
-        strncpy(NotificationSettings.Sender, sender.c_str(), sizeof(NotificationSettings.Sender));
-        strncpy(NotificationSettings.Receiver, receiver.c_str(), sizeof(NotificationSettings.Receiver));
-        strncpy(NotificationSettings.Subject, subject.c_str(), sizeof(NotificationSettings.Subject));
-        strncpy(NotificationSettings.Body, body.c_str(), sizeof(NotificationSettings.Body));
-      }
-    }
-    SaveNotificationSettings(index - 1, (byte*)&NotificationSettings, sizeof(NotificationSettings));
-    if (!SaveSettings())
-      reply += F("<span style=\"color:red\">Error saving to flash!</span>");
-  }
-
-  reply += F("<form name='frmselect' method='post'>");
-
-  if (index == 0)
-  {
-    reply += F("<table border=1px frame='box' rules='all'><TR><TH>");
-    reply += F("<TH>Nr<TH>Enabled<TH>Service<TH>Server<TH>Port");
-
-    NotificationSettingsStruct NotificationSettings;
-    for (byte x = 0; x < NOTIFICATION_MAX; x++)
-    {
-      LoadNotificationSettings(x, (byte*)&NotificationSettings, sizeof(NotificationSettings));
-      reply += F("<TR><TD>");
-      reply += F("<a class='button link' href=\"notifications?index=");
-      reply += x + 1;
-      reply += F("\">Edit</a>");
-      reply += F("<TD>");
-      reply += x + 1;
-      reply += F("<TD>");
-      if (Settings.Notification[x] != 0)
-      {
-        addEnabled(reply, Settings.NotificationEnabled[x]);
-
-        reply += F("<TD>");
-        byte NotificationProtocolIndex = getNotificationIndex(Settings.Notification[x]);
-        String NotificationName = "";
-        NPlugin_ptr[NotificationProtocolIndex](NPLUGIN_GET_DEVICENAME, 0, NotificationName);
-        reply += NotificationName;
-        reply += F("<TD>");
-        reply += NotificationSettings.Server;
-        reply += F("<TD>");
-        reply += NotificationSettings.Port;
-      }
-      else
-        reply += F("<TD><TD><TD>");
-    }
-    reply += F("</table></form>");
-  }
-  else
-  {
-    reply += F("<table><TR><TH>Notification Settings<TH>");
-    reply += F("<TR><TD>Notification:");
-    byte choice = Settings.Notification[index - 1];
-    reply += F("<TD>");
-    addSelector_Head(reply, F("notification"), true);
-    addSelector_Item(reply, F("- None -"), 0, false, false, F(""));
-    for (byte x = 0; x <= notificationCount; x++)
-    {
-      String NotificationName = "";
-      NPlugin_ptr[x](NPLUGIN_GET_DEVICENAME, 0, NotificationName);
-      addSelector_Item(reply,
-                       NotificationName,
-                       Notification[x].Number,
-                       choice == Notification[x].Number,
-                       false,
-                       F(""));
-    }
-    addSelector_Foot(reply);
-
-    addHelpButton(reply, F("EasyNotifications"));
-
-
-    char str[20];
-
-    if (Settings.Notification[index - 1])
-    {
-      NotificationSettingsStruct NotificationSettings;
-      LoadNotificationSettings(index - 1, (byte*)&NotificationSettings, sizeof(NotificationSettings));
-
-      byte NotificationProtocolIndex = getNotificationIndex(Settings.Notification[index - 1]);
-
-      if (Notification[NotificationProtocolIndex].usesMessaging)
-      {
-        reply += F("<TR><TD>Domain:<TD><input type='text' name='domain' size=64 value='");
-        reply += NotificationSettings.Domain;
-        reply += F("'>");
-
-        reply += F("<TR><TD>Server:<TD><input type='text' name='server' size=64 value='");
-        reply += NotificationSettings.Server;
-        reply += F("'>");
-
-        reply += F("<TR><TD>Port:<TD><input type='text' name='port' value='");
-        reply += NotificationSettings.Port;
-        reply += F("'>");
-
-        reply += F("<TR><TD>Sender:<TD><input type='text' name='sender' size=64 value='");
-        reply += NotificationSettings.Sender;
-        reply += F("'>");
-
-        reply += F("<TR><TD>Receiver:<TD><input type='text' name='receiver' size=64 value='");
-        reply += NotificationSettings.Receiver;
-        reply += F("'>");
-
-        reply += F("<TR><TD>Subject:<TD><input type='text' name='subject' size=64 value='");
-        reply += NotificationSettings.Subject;
-        reply += F("'>");
-
-        reply += F("<TR><TD>Body:<TD><textarea name='body' rows='5' cols='80' size=512 wrap='off'>");
-        reply += NotificationSettings.Body;
-        reply += F("</textarea>");
-      }
-
-      if (Notification[NotificationProtocolIndex].usesGPIO > 0)
-      {
-        reply += F("<TR><TD>1st GPIO:<TD>");
-        addPinSelect(false, reply, "pin1", NotificationSettings.Pin1);
-      }
-
-      reply += F("<TR><TD>Enabled:<TD>");
-      addCheckBox(reply, F("notificationenabled"), Settings.NotificationEnabled[index - 1]);
-
-      TempEvent.NotificationIndex = index - 1;
-      NPlugin_ptr[NotificationProtocolIndex](NPLUGIN_WEBFORM_LOAD, &TempEvent, reply);
-
-    }
-
-    addFormSeparator(reply);
-
-    reply += F("<TR><TD><TD><a class='button link' href=\"notifications\">Close</a>");
-    addSubmitButton(reply);
-    reply += F("</table></form>");
-  }
-  addFooter(reply);
-  sendWebPage(F("TmplStd"), reply);
-}
-
 
 //********************************************************************************
 // Web Interface hardware page
@@ -3518,6 +3325,7 @@ void handle_filelist() {
     fs::File f = dir.openFile("r");
     reply += F("<TD>");
     reply += f.size();
+    f.close();
   }
   reply += F("</table></form>");
   reply += F("<BR><a class='button link' href=\"/upload\">Upload</a>");

@@ -464,17 +464,6 @@ void taskClear(byte taskIndex, boolean save)
 void BuildFixes()
 {
   Serial.println(F("\nBuild changed!"));
-
-  if (Settings.Build < 145)
-  {
-    fs::File f = SPIFFS.open("notification.dat", "w");
-    if (f)
-    {
-      for (int x = 0; x < 4096; x++)
-        f.write(0);
-      f.close();
-    }
-  }
   Settings.Build = BUILD;
   SaveSettings();
 }
@@ -586,18 +575,6 @@ byte getProtocolIndex(byte Number)
     if (Protocol[x].Number == Number)
       ProtocolIndex = x;
   return ProtocolIndex;
-}
-
-/********************************************************************************************\
-  Find notification index corresponding to protocol setting
-  \*********************************************************************************************/
-byte getNotificationIndex(byte Number)
-{
-  byte NotificationIndex = 0;
-  for (byte x = 0; x <= notificationCount ; x++)
-    if (Notification[x].Number == Number)
-      NotificationIndex = x;
-  return NotificationIndex;
 }
 
 /********************************************************************************************\
@@ -734,7 +711,9 @@ String LoadSettings()
 String SaveTaskSettings(byte TaskIndex)
 {
   ExtraTaskSettings.TaskIndex = TaskIndex;
-  return(SaveToFile((char*)"config.dat", DAT_OFFSET_TASKS + (TaskIndex * DAT_TASKS_SIZE), (byte*)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct)));
+  //addLog(LOG_LEVEL_DEBUG, String(F("SAVE TASKS (index): "))+String(TaskIndex));
+  //return(SaveToFile((char*)"config.dat", DAT_OFFSET_TASKS + (TaskIndex * DAT_TASKS_SIZE), (byte*)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct)));
+  return(SaveToFile((char*)"extratasksettings.dat", TaskIndex * sizeof(struct ExtraTaskSettingsStruct), (byte*)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct)));
 }
 
 
@@ -748,7 +727,8 @@ String LoadTaskSettings(byte TaskIndex)
     return(String());
 
   String result = "";
-  result = LoadFromFile((char*)"config.dat", DAT_OFFSET_TASKS + (TaskIndex * DAT_TASKS_SIZE), (byte*)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct));
+  //addLog(LOG_LEVEL_DEBUG, String(F("LOAD TASKS (index): "))+String(TaskIndex));
+  result = LoadFromFile((char*)"extratasksettings.dat", TaskIndex * sizeof(struct ExtraTaskSettingsStruct), (byte*)&ExtraTaskSettings, sizeof(struct ExtraTaskSettingsStruct));
   ExtraTaskSettings.TaskIndex = TaskIndex; // Needed when an empty task was requested
   return result;
 }
@@ -761,7 +741,7 @@ String SaveCustomTaskSettings(int TaskIndex, byte* memAddress, int datasize)
 {
   if (datasize > DAT_TASKS_SIZE)
     return F("SaveCustomTaskSettings too big");
-  return(SaveToFile((char*)"config.dat", DAT_OFFSET_TASKS + (TaskIndex * DAT_TASKS_SIZE) + DAT_TASKS_CUSTOM_OFFSET, memAddress, datasize));
+  return(SaveToFile((char*)"customtasksettings.dat", TaskIndex * DAT_TASKS_SIZE, memAddress, datasize));
 }
 
 
@@ -772,7 +752,7 @@ String LoadCustomTaskSettings(int TaskIndex, byte* memAddress, int datasize)
 {
   if (datasize > DAT_TASKS_SIZE)
     return (String(F("LoadCustomTaskSettings too big")));
-  return(LoadFromFile((char*)"config.dat", DAT_OFFSET_TASKS + (TaskIndex * DAT_TASKS_SIZE) + DAT_TASKS_CUSTOM_OFFSET, memAddress, datasize));
+  return(LoadFromFile((char*)"customtasksettings.dat", TaskIndex * DAT_TASKS_SIZE, memAddress, datasize));
 }
 
 /********************************************************************************************\
@@ -782,7 +762,7 @@ String SaveControllerSettings(int ControllerIndex, byte* memAddress, int datasiz
 {
   if (datasize > DAT_CONTROLLER_SIZE)
     return F("SaveControllerSettings too big");
-  return SaveToFile((char*)"config.dat", DAT_OFFSET_CONTROLLER + (ControllerIndex * DAT_CONTROLLER_SIZE), memAddress, datasize);
+  return SaveToFile((char*)"controllersettings.dat", ControllerIndex * datasize, memAddress, datasize);
 }
 
 
@@ -794,51 +774,8 @@ String LoadControllerSettings(int ControllerIndex, byte* memAddress, int datasiz
   if (datasize > DAT_CONTROLLER_SIZE)
     return F("LoadControllerSettings too big");
 
-  return(LoadFromFile((char*)"config.dat", DAT_OFFSET_CONTROLLER + (ControllerIndex * DAT_CONTROLLER_SIZE), memAddress, datasize));
+  return(LoadFromFile((char*)"controllersettings.dat", ControllerIndex * datasize, memAddress, datasize));
 }
-
-/********************************************************************************************\
-  Save Custom Controller settings to SPIFFS
-  \*********************************************************************************************/
-String SaveCustomControllerSettings(int ControllerIndex,byte* memAddress, int datasize)
-{
-  if (datasize > DAT_CUSTOM_CONTROLLER_SIZE)
-    return F("SaveCustomControllerSettings too big");
-  return SaveToFile((char*)"config.dat", DAT_OFFSET_CUSTOM_CONTROLLER + (ControllerIndex * DAT_CUSTOM_CONTROLLER_SIZE), memAddress, datasize);
-}
-
-
-/********************************************************************************************\
-  Load Custom Controller settings to SPIFFS
-  \*********************************************************************************************/
-String LoadCustomControllerSettings(int ControllerIndex,byte* memAddress, int datasize)
-{
-  if (datasize > DAT_CUSTOM_CONTROLLER_SIZE)
-    return(F("LoadCustomControllerSettings too big"));
-  return(LoadFromFile((char*)"config.dat", DAT_OFFSET_CUSTOM_CONTROLLER + (ControllerIndex * DAT_CUSTOM_CONTROLLER_SIZE), memAddress, datasize));
-}
-
-/********************************************************************************************\
-  Save Controller settings to SPIFFS
-  \*********************************************************************************************/
-String SaveNotificationSettings(int NotificationIndex, byte* memAddress, int datasize)
-{
-  if (datasize > DAT_NOTIFICATION_SIZE)
-    return F("SaveNotificationSettings too big");
-  return SaveToFile((char*)"notification.dat", NotificationIndex * DAT_NOTIFICATION_SIZE, memAddress, datasize);
-}
-
-
-/********************************************************************************************\
-  Load Controller settings to SPIFFS
-  \*********************************************************************************************/
-String LoadNotificationSettings(int NotificationIndex, byte* memAddress, int datasize)
-{
-  if (datasize > DAT_NOTIFICATION_SIZE)
-    return(F("LoadNotificationSettings too big"));
-  return(LoadFromFile((char*)"notification.dat", NotificationIndex * DAT_NOTIFICATION_SIZE, memAddress, datasize));
-}
-
 
 /********************************************************************************************\
   SPIFFS error handling
@@ -882,12 +819,27 @@ String InitFile(const char* fname, int datasize)
   \*********************************************************************************************/
 String SaveToFile(char* fname, int index, byte* memAddress, int datasize)
 {
-
+  String log;
   FLASH_GUARD();
 
   fs::File f = SPIFFS.open(fname, "r+");
-  //fs::File f = SPIFFS.open(fname, "r+");
+
+  if (!f) {
+    addLog(LOG_LEVEL_DEBUG, F("Save to file ERROR"));
+    f.close();
+    return String();
+  }
+
+  unsigned int filesize = f.size();
   
+  // log = F("SAVE TO FILE : ");
+  // log += String(fname);
+  // log += F(" index : ");
+  // log += index;
+  // log += F(" filesize : ");
+  // log += filesize;
+  // addLog(LOG_LEVEL_DEBUG, log);
+
   SPIFFS_CHECK(f, fname);
 
   SPIFFS_CHECK(f.seek(index, fs::SeekSet), fname);
@@ -898,7 +850,7 @@ String SaveToFile(char* fname, int index, byte* memAddress, int datasize)
     pointerToByteToSave++;
   }
   f.close();
-  String log = F("FILE : Saved ");
+  log = F("FILE : Saved ");
   log=log+fname;
   addLog(LOG_LEVEL_INFO, log);
 
@@ -912,12 +864,27 @@ String SaveToFile(char* fname, int index, byte* memAddress, int datasize)
   \*********************************************************************************************/
 String LoadFromFile(char* fname, int index, byte* memAddress, int datasize)
 {
-  // addLog(LOG_LEVEL_INFO, String(F("FILE : Load size "))+datasize);
+  unsigned long filesize;
+  String log;
 
   fs::File f = SPIFFS.open(fname, "r+");
   SPIFFS_CHECK(f, fname);
+  filesize = f.size();
 
-  // addLog(LOG_LEVEL_INFO, String(F("FILE : File size "))+f.size());
+  // log = F("LOAD FROM FILE : ");
+  // log += String(fname);
+  // log += F(" index : ");
+  // log += index;
+  // log += F(" filesize : ");
+  // log += filesize;
+  // addLog(LOG_LEVEL_DEBUG, log);
+
+  if (index >= filesize){
+    f.close();
+    addLog(LOG_LEVEL_DEBUG, String(F("FILE : Load null data config for "))+String(fname));
+    return(String());
+  }
+  
 
   SPIFFS_CHECK(f.seek(index, fs::SeekSet), fname);
   byte *pointerToByteToRead = memAddress;
@@ -991,16 +958,19 @@ void ResetFactory(void)
   String fname;
 
   fname=F("config.dat");
-  InitFile(fname.c_str(), sizeof(SettingsStruct));
+  InitFile(fname.c_str(), sizeof(SettingsStruct)); 
 
   fname=F("security.dat");
   InitFile(fname.c_str(), sizeof(SecurityStruct));
 
-  fname=F("notification.dat");
-  InitFile(fname.c_str(), sizeof(NotificationSettingsStruct));
+  fname=F("extratasksettings.dat");
+  InitFile(fname.c_str(), TASKS_MAX*sizeof(ExtraTaskSettingsStruct));
 
-  // fname=F("mqtt-datalog-spiffs.unsent");
-  // InitFile(fname.c_str(), 0);
+  // fname=F("customtasksettings.dat");
+  // InitFile(fname.c_str(), TASKS_MAX*DAT_TASKS_SIZE);
+
+  fname=F("controllersettings.dat");
+  InitFile(fname.c_str(), sizeof(ControllerSettingsStruct));
 
   LoadSettings();
   // now we set all parameters that need to be non-zero as default value

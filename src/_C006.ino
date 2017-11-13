@@ -4,7 +4,7 @@
 
 #define CPLUGIN_006
 #define CPLUGIN_ID_006         6
-#define CPLUGIN_NAME_006       "PiDome MQTT"
+#define CPLUGIN_NAME_006       "Generic MQTT"
 
 boolean CPlugin_006(byte function, struct EventStruct *event, String& string)
 {

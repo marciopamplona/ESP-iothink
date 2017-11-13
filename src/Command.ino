@@ -78,26 +78,6 @@ void ExecuteCommand(byte source, const char *Line)
     initRTC();
   }
 
-  if (strcasecmp_P(Command, PSTR("notify")) == 0)
-  {
-    success = true;
-    String message = "";
-    if (GetArgv(Line, TmpStr1, 3))
-      message = TmpStr1;
-
-    if (Par1 > 0)
-    {
-      if (Settings.NotificationEnabled[Par1 - 1] && Settings.Notification[Par1 - 1] != 0)
-      {
-        byte NotificationProtocolIndex = getNotificationIndex(Settings.Notification[Par1 - 1]);
-        struct EventStruct TempEvent;
-        TempEvent.NotificationProtocolIndex = Par1 - 1;
-        if (NPlugin_id[NotificationProtocolIndex] != 0)
-          NPlugin_ptr[NotificationProtocolIndex](NPLUGIN_NOTIFY, &TempEvent, message);
-      }
-    }
-  }
-
   if (strcasecmp_P(Command, PSTR("resetFlashWriteCounter")) == 0)
   {
     success = true;
