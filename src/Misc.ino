@@ -2388,7 +2388,7 @@ void sendMqttLog(){
             }
 
             temp = publishStringMount(0, dataChunk.byteIndex[0], dataChunk.byteIndex[1], dataChunk.epoch, shortToDouble(dataChunk.IndexValue[1],2));
-            log += temp + String("\n");
+            addLog(LOG_LEVEL_DEBUG, temp);
             mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
             mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
             publishResult = MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
@@ -2400,9 +2400,6 @@ void sendMqttLog(){
           }
         }
         
-        log += "\n\n";
-        addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
-
         removefile:
         logFile.close();
         
@@ -2460,8 +2457,7 @@ void sendMqttLog(){
             }
 
             temp = publishStringMount(0, dataChunk.byteIndex[0], dataChunk.byteIndex[1], dataChunk.epoch, shortToDouble(dataChunk.IndexValue[1],2));
-            log = temp + String("\n");
-            addLog(LOG_LEVEL_DEBUG, log);
+            addLog(LOG_LEVEL_DEBUG, temp);
             mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
             mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
             publishResult = MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
@@ -2472,9 +2468,6 @@ void sendMqttLog(){
             byteCopyIdx = 0;
           }
         }
-
-        log += "\n\n";
-        addLog(LOG_LEVEL_DEBUG,String(F("MQTT logger: file read:\n"))+log);
 
         f.close();
         if (publishResult) SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
