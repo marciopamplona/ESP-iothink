@@ -2295,11 +2295,11 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         }
       }
       
-      logger = String(F("Seek position: "));
-      logger += RTC.seekPosition;
-      logger += String(F(" freeSpace: "));
-      logger += freeSpace;
-      addLog(LOG_LEVEL_DEBUG, logger);
+      // logger = String(F("Seek position: "));
+      // logger += RTC.seekPosition;
+      // logger += String(F(" freeSpace: "));
+      // logger += freeSpace;
+      // addLog(LOG_LEVEL_DEBUG, logger);
 
       if (!(f.seek(RTC.seekPosition, fs::SeekSet))){
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (seek)"));
@@ -2460,7 +2460,8 @@ void sendMqttLog(){
             }
 
             temp = publishStringMount(0, dataChunk.byteIndex[0], dataChunk.byteIndex[1], dataChunk.epoch, shortToDouble(dataChunk.IndexValue[1],2));
-            log += temp + String("\n");
+            log = temp + String("\n");
+            addLog(LOG_LEVEL_DEBUG, log);
             mqttString[0] = String(temp).substring(0,String(temp).lastIndexOf(';'));
             mqttString[1] = String(temp).substring(String(temp).lastIndexOf(';')+1);
             publishResult = MQTTclient.publish(mqttString[0].c_str(), mqttString[1].c_str(), Settings.MQTTRetainFlag);
