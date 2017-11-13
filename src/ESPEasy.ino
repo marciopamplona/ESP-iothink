@@ -107,8 +107,8 @@
 // ********************************************************************************
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
-#define ESP_PROJECT_PID             20171101L
-#define VERSION                             6
+#define ESP_PROJECT_PID             20171112L
+#define VERSION                             7
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
 
@@ -703,7 +703,7 @@ void setup()
   // tt.epoch = 0x03040506;
   // tt.IndexValue[1] = 0x0708;
 
-  // addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(memLogStruct)));
+  // addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(SettingsStruct)));
   
   // for (int i=0; i<sizeof(memLogStruct); i++){
   //   byteread = *(byteBuf+i);

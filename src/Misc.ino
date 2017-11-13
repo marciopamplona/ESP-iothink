@@ -991,16 +991,16 @@ void ResetFactory(void)
   String fname;
 
   fname=F("config.dat");
-  InitFile(fname.c_str(), 65536);
+  InitFile(fname.c_str(), sizeof(SettingsStruct));
 
   fname=F("security.dat");
-  InitFile(fname.c_str(), 4096);
+  InitFile(fname.c_str(), sizeof(SecurityStruct));
 
   fname=F("notification.dat");
-  InitFile(fname.c_str(), 4096);
+  InitFile(fname.c_str(), sizeof(NotificationSettingsStruct));
 
-  fname=F("mqtt-datalog-spiffs.unsent");
-  InitFile(fname.c_str(), 0);
+  // fname=F("mqtt-datalog-spiffs.unsent");
+  // InitFile(fname.c_str(), 0);
 
   LoadSettings();
   // now we set all parameters that need to be non-zero as default value
