@@ -108,7 +108,7 @@
 //   DO NOT CHANGE ANYTHING BELOW THIS LINE
 // ********************************************************************************
 #define ESP_PROJECT_PID             20171112L
-#define VERSION                             7
+#define VERSION                             8
 #define BUILD                           20000 // git version 2.0.0
 #define BUILD_NOTES                 " - Iothink"
 
@@ -332,6 +332,8 @@ struct SecurityStruct
   char          WifiKey[64];
   char          WifiSSID2[32];
   char          WifiKey2[64];
+  char          lastWifiSSID[32];
+  char          lastWifiKey[64];
   char          WifiAPKey[64];
   char          ControllerUser[CONTROLLER_MAX][26];
   char          ControllerPassword[CONTROLLER_MAX][64];
@@ -924,7 +926,7 @@ void setup()
 
   if (TxData){
     // Inicia automaticamente a estação!
-    WifiConnect(3);
+    WifiConnect(1);
   
     // setup UDP
     if (Settings.UDPPort != 0) portUDP.begin(Settings.UDPPort);
@@ -960,13 +962,6 @@ void setup()
 void loop()
 {
   loopCounter++;
-
-  // if (wifiSetupConnect)
-  // {
-  //   // try to connect for setup wizard
-  //   WifiConnect(1);
-  //   wifiSetupConnect = false;
-  // }
 
   // Deep sleep mode, just run all tasks one time and go back to sleep as fast as possible
   if (isDeepSleepEnabled())

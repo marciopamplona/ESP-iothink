@@ -83,6 +83,7 @@ boolean WifiConnect(byte connectAttempts)
   char hostname[40];
   strncpy(hostname, WifiGetHostname().c_str(), sizeof(hostname));
   wifi_station_set_hostname(hostname);
+  boolean connected = false;
 
   //use static ip?
   if (Settings.IP[0] != 0 && Settings.IP[0] != 255)
@@ -99,10 +100,26 @@ boolean WifiConnect(byte connectAttempts)
     WiFi.config(ip, gw, subnet, dns);
   }
 
+  if (!connected && WifiConnectSSID(SecuritySettings.lastWifiSSID,  SecuritySettings.lastWifiKey,  connectAttempts)) {
+    connected = true;
+  }
+
+  if (!connected && WifiConnectSSID(SecuritySettings.WifiSSID,  SecuritySettings.WifiKey,  connectAttempts)) {
+    strcpy(SecuritySettings.lastWifiSSID, SecuritySettings.WifiSSID);
+    strcpy(SecuritySettings.lastWifiKey, SecuritySettings.WifiKey);
+    SaveSettings();
+    connected = true;
+  }
+
+  if (!connected && WifiConnectSSID(SecuritySettings.WifiSSID2,  SecuritySettings.WifiKey2,  connectAttempts)) {
+    strcpy(SecuritySettings.lastWifiSSID, SecuritySettings.WifiSSID2);
+    strcpy(SecuritySettings.lastWifiKey, SecuritySettings.WifiKey2);
+    SaveSettings();
+    connected = true;
+  }
+
   //try to connect to one of the access points
-  if (WifiConnectSSID(SecuritySettings.WifiSSID,  SecuritySettings.WifiKey,  connectAttempts) ||
-      WifiConnectSSID(SecuritySettings.WifiSSID2, SecuritySettings.WifiKey2, connectAttempts))
-  {
+  if (connected) {
     // fix octet?
     if (Settings.IP_Octet != 0 && Settings.IP_Octet != 255)
     {
