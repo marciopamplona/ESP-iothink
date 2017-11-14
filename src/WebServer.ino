@@ -631,7 +631,7 @@ void handle_config() {
   String espsubnet = WebServer.arg(F("espsubnet"));
   String espdns = WebServer.arg(F("espdns"));
   String unit = WebServer.arg(F("unit"));
-  String samplesPerTx = WebServer.arg(F("samplespertx"));
+  String samplespertx = WebServer.arg(F("samplespertx"));
   //String apkey = WebServer.arg(F("apkey"));
 
   String reply = "";
