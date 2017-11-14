@@ -135,20 +135,24 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       if (root["syncinterval"].success()){
         Settings.syncInterval = (root.get<String>("syncinterval")).toInt();
       }
-/*
-  SecuritySettings::
-  char          WifiSSID[32];
-  char          WifiKey[64];
-  char          WifiSSID2[32];
-  char          WifiKey2[64];
-  char          lastWifiSSID[32];
-  char          lastWifiKey[64];
-  char          WifiAPKey[64];
-  char          ControllerUser[CONTROLLER_MAX][26];
-  char          ControllerPassword[CONTROLLER_MAX][64];
-*/
+
       if (root["ssid1"].success()){
         strcpy(SecuritySettings.WifiSSID,root.get<String>("ssid1").c_str());
+      }
+      if (root["ssid2"].success()){
+        strcpy(SecuritySettings.WifiSSID,root.get<String>("ssid2").c_str());
+      }
+      if (root["key1"].success()){
+        strcpy(SecuritySettings.WifiSSID,root.get<String>("key1").c_str());
+      }
+      if (root["key2"].success()){
+        strcpy(SecuritySettings.WifiSSID,root.get<String>("key2").c_str());
+      }
+      if (root["controlleruser"].success()){
+        strcpy(SecuritySettings.WifiSSID,root.get<String>("controlleruser").c_str());
+      }
+      if (root["controllerpwd"].success()){
+        strcpy(SecuritySettings.WifiSSID,root.get<String>("controllerpwd").c_str());
       }
 
       if (root["reset"].success()){
