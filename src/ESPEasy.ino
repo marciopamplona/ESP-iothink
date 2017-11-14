@@ -768,6 +768,7 @@ void setup()
   addLog(LOG_LEVEL_INFO, log);
 
 /////////////////////////////////////// RTC CHECKS
+
   log = F("INIT: reg 0x7, dev 0x68: ");
   log += readI2Cregister(7, DS1307_ADDRESS);
   

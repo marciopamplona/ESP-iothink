@@ -706,7 +706,7 @@ void handle_config() {
 
   addFormCheckBox(reply, F("Sleep on connection failure"), F("deepsleeponfail"), Settings.deepSleepOnFail);
 
-  addFormNumericBox(reply, F("Samples / TX"), F("delay"), Settings.samplesPerTx, 1, 512);
+  addFormNumericBox(reply, F("Samples / TX"), F("samplespertx"), Settings.samplesPerTx, 1, 512);
   
   addFormSeparator(reply);
 
