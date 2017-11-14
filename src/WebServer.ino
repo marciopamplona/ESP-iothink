@@ -654,6 +654,7 @@ void handle_config() {
     Settings.Delay = sensordelay.toInt();
     Settings.deepSleep = (deepsleep == "on");
     Settings.deepSleepOnFail = (deepsleeponfail == "on");
+    Settings.samplesPerTx = samplespertx.toInt();
     espip.toCharArray(tmpString, 26);
     str2ip(tmpString, Settings.IP);
     espgateway.toCharArray(tmpString, 26);
@@ -706,7 +707,7 @@ void handle_config() {
 
   addFormCheckBox(reply, F("Sleep on connection failure"), F("deepsleeponfail"), Settings.deepSleepOnFail);
 
-  addFormNumericBox(reply, F("Samples / TX"), F("samplespertx"), Settings.samplesPerTx, 1, 512);
+  addFormNumericBox(reply, F("Samples / TX"), F("samplespertx"), Settings.samplesPerTx, 1, 1024);
   
   addFormSeparator(reply);
 
