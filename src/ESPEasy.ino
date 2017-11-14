@@ -775,7 +775,7 @@ void setup()
   byte reg = readI2Cregister(7, DS3231_ADDRESS);
   boolean presence = checkI2Cpresence(DS3231_ADDRESS);
 
-  if (presence && ((reg & 0x6c)==0)){
+  if (presence && ((reg & 0x6f)==3)){
     log = F("INIT: DS1307 detected");
     RtcDS1307<TwoWire> Rtc(Wire);
     RtcHardware = 1307;

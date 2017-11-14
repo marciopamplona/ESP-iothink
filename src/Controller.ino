@@ -135,7 +135,22 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       if (root["syncinterval"].success()){
         Settings.syncInterval = (root.get<String>("syncinterval")).toInt();
       }
-      
+/*
+  SecuritySettings::
+  char          WifiSSID[32];
+  char          WifiKey[64];
+  char          WifiSSID2[32];
+  char          WifiKey2[64];
+  char          lastWifiSSID[32];
+  char          lastWifiKey[64];
+  char          WifiAPKey[64];
+  char          ControllerUser[CONTROLLER_MAX][26];
+  char          ControllerPassword[CONTROLLER_MAX][64];
+*/
+      if (root["ssid1"].success()){
+        strcpy(SecuritySettings.WifiSSID,root.get<String>("ssid1").c_str());
+      }
+
       if (root["reset"].success()){
         if (publishResult){
           if ((root.get<String>("reset")).toInt()){
