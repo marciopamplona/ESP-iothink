@@ -236,9 +236,11 @@
 
 #include "lwip/tcp_impl.h"
 #include <ESP8266WiFi.h>
+#include <ESP8266Ping.h>
 #include <DNSServer.h>
 #include <WiFiUdp.h>
 #include <ESP8266WebServer.h>
+
 #ifdef FEATURE_MDNS
 #include <ESP8266mDNS.h>
 #endif
@@ -1066,6 +1068,22 @@ void runOncePerSecond()
     timerAPoff = 0;
     WifiAPMode(false);
   }
+
+  // STATUS
+  // log = String(F("MQTT connection failures: "))+String(100*connectionFailures/connTotal)+String(F("%"));;
+  // log += String(F("\nWifi connection failures: "))+String(100*wifiConnFail/wifiConnTotal)+String(F("%"));
+  
+  ControllerSettingsStruct ControllerSettings;
+  LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
+  IPAddress MQTTBrokerIP(ControllerSettings.IP);
+  bool ret = Ping.ping(MQTTBrokerIP,1);
+  int serverPing = Ping.averageTime();
+  String log = String(F("\nServer ping: "))+String(serverPing)+String(F("ms"));
+  
+  // log += String(F("\nWifi scan: "))+String(wifiScan);
+  // log += String(F("\nFree space: ")+String(freeSpace)+String(F(" bytes")));
+
+  addLog(LOG_LEVEL_DEBUG, log);
 }
 
 /*********************************************************************************************\

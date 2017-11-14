@@ -640,15 +640,11 @@ void handle_config() {
   if (ssid[0] != 0)
   {
     strncpy(Settings.Name, name.c_str(), sizeof(Settings.Name));
-    //strncpy(SecuritySettings.Password, password.c_str(), sizeof(SecuritySettings.Password));
     copyFormPassword(F("password"), SecuritySettings.Password, sizeof(SecuritySettings.Password));
     strncpy(SecuritySettings.WifiSSID, ssid.c_str(), sizeof(SecuritySettings.WifiSSID));
-    //strncpy(SecuritySettings.WifiKey, key.c_str(), sizeof(SecuritySettings.WifiKey));
     copyFormPassword(F("key"), SecuritySettings.WifiKey, sizeof(SecuritySettings.WifiKey));
     strncpy(SecuritySettings.WifiSSID2, ssid2.c_str(), sizeof(SecuritySettings.WifiSSID2));
-    //strncpy(SecuritySettings.WifiKey2, key2.c_str(), sizeof(SecuritySettings.WifiKey2));
     copyFormPassword(F("key2"), SecuritySettings.WifiKey2, sizeof(SecuritySettings.WifiKey2));
-    //strncpy(SecuritySettings.WifiAPKey, apkey.c_str(), sizeof(SecuritySettings.WifiAPKey));
     copyFormPassword(F("apkey"), SecuritySettings.WifiAPKey, sizeof(SecuritySettings.WifiAPKey));
 
     Settings.Delay = sensordelay.toInt();
