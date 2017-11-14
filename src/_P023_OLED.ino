@@ -128,7 +128,7 @@ boolean Plugin_023(byte function, struct EventStruct *event, String& string)
           Plugin_023_OLED_type |= OLED_64x48;
         }
 
-        Plugin_023_sendStrXY("ESP Easy ", 0, 0);
+        //Plugin_023_sendStrXY("ESP Easy ", 0, 0);
         displayTimer = Settings.TaskDevicePluginConfig[event->TaskIndex][2];
         if (Settings.TaskDevicePin3[event->TaskIndex] != -1)
           pinMode(Settings.TaskDevicePin3[event->TaskIndex], INPUT_PULLUP);
