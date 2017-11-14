@@ -822,12 +822,10 @@ String SaveToFile(char* fname, int index, byte* memAddress, int datasize)
   String log;
   FLASH_GUARD();
 
-  if (SPIFFS.exists(fname)){
-    fs::File f = SPIFFS.open(fname, "r+");
-  } else {
-    InitFile
-  }
+  if (!SPIFFS.exists(fname)) InitFile(fname,index + datasize);
   
+  fs::File f = SPIFFS.open(fname, "r+");
+
   if (!f) {
     addLog(LOG_LEVEL_DEBUG, F("Save to file ERROR"));
     f.close();
@@ -835,14 +833,6 @@ String SaveToFile(char* fname, int index, byte* memAddress, int datasize)
   }
 
   unsigned int filesize = f.size();
-  
-  // log = F("SAVE TO FILE : ");
-  // log += String(fname);
-  // log += F(" index : ");
-  // log += index;
-  // log += F(" filesize : ");
-  // log += filesize;
-  // addLog(LOG_LEVEL_DEBUG, log);
 
   SPIFFS_CHECK(f, fname);
 
