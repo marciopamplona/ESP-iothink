@@ -2250,7 +2250,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         unsentFile.seekSet(RTC.seekPosition);
 
         // Se não houver espaço, recomeça a gravar no início do arquivo
-        if ((RTC.seekPosition + datasize*4 > freeSpace)){
+        if ((RTC.seekPosition + 512 > freeSpace)){
           RTC.seekPosition = 0;
         } else {
           RTC.seekPosition+=datasize;
@@ -2295,12 +2295,6 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         }
       }
       
-      // logger = String(F("Seek position: "));
-      // logger += RTC.seekPosition;
-      // logger += String(F(" freeSpace: "));
-      // logger += freeSpace;
-      // addLog(LOG_LEVEL_DEBUG, logger);
-
       if (!(f.seek(RTC.seekPosition, fs::SeekSet))){
         addLog(LOG_LEVEL_DEBUG, F("MQTT logger: error saving unsent data in SPIFFS (seek)"));
         f.close();
@@ -2308,7 +2302,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       }
 
       // Se não houver espaço, recomeça a gravar no início do arquivo
-      if ((RTC.seekPosition + datasize*4 > freeSpace)){
+      if ((RTC.seekPosition + 256 > freeSpace)){
         RTC.seekPosition = 0;
       } else {
         RTC.seekPosition+=datasize;
