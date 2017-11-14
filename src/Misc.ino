@@ -2802,3 +2802,22 @@ uint8_t readI2Cregister(uint8_t regAddress, byte deviceAddress){
   uint8_t regValue = Wire.read();
   return regValue;
 }
+
+String wifiScan() {
+  String reply = "";
+  int n = WiFi.scanNetworks();
+  if (n == 0) {
+
+  } else {
+    for (int i = 0; i < n; ++i)
+    {
+      reply += WiFi.SSID(i);
+      reply += ";";
+      reply += WiFi.BSSIDstr(i);
+      reply += ";";
+      reply += WiFi.RSSI(i);
+      reply += "\n";
+    }
+  }
+  return reply;
+}

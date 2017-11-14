@@ -627,6 +627,7 @@ boolean MQTTconnected = false;
 boolean NextWakeRadioOn = true;
 unsigned long freeSpace = 0;
 
+#undef DEBUG_WIFI
 
 /*********************************************************************************************\
  * SETUP
@@ -1070,9 +1071,11 @@ void runOncePerSecond()
   }
 
   // STATUS
+  //////////////////////////////////////////////////////////////////////////////////////////////////////////
   // log = String(F("MQTT connection failures: "))+String(100*connectionFailures/connTotal)+String(F("%"));;
   // log += String(F("\nWifi connection failures: "))+String(100*wifiConnFail/wifiConnTotal)+String(F("%"));
   
+  // TODO criar global
   ControllerSettingsStruct ControllerSettings;
   LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
   IPAddress MQTTBrokerIP(ControllerSettings.IP);
@@ -1080,7 +1083,7 @@ void runOncePerSecond()
   int serverPing = Ping.averageTime();
   String log = String(F("\nServer ping: "))+String(serverPing)+String(F("ms"));
   
-  // log += String(F("\nWifi scan: "))+String(wifiScan);
+  log += String(F("\nWifi scan: \n"))+String(wifiScan());
   // log += String(F("\nFree space: ")+String(freeSpace)+String(F(" bytes")));
 
   addLog(LOG_LEVEL_DEBUG, log);
