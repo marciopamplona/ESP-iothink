@@ -234,10 +234,6 @@
 #define DAT_CUSTOM_CONTROLLER_SIZE       1024
 #define DAT_CONTROLLER_SIZE              1024
 
-// #define DAT_OFFSET_TASKS                 4096  // each task = 2k, (1024 basic + 1024 bytes custom), 12 max
-// #define DAT_OFFSET_CONTROLLER           28672  // each controller = 1k, 4 max
-// #define DAT_OFFSET_CUSTOM_CONTROLLER    32768  // each custom controller config = 1k, 4 max.
-
 #include "lwip/tcp_impl.h"
 #include <ESP8266WiFi.h>
 #include <DNSServer.h>
@@ -665,7 +661,7 @@ void setup()
   // tt.epoch = 0x03040506;
   // tt.IndexValue[1] = 0x0708;
 
-  addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(SettingsStruct)));
+  // addLog(LOG_LEVEL_INFO, String(F("TESTE: "))+String(sizeof(SettingsStruct)));
   
   // for (int i=0; i<sizeof(memLogStruct); i++){
   //   byteread = *(byteBuf+i);
@@ -779,13 +775,13 @@ void setup()
   byte reg = readI2Cregister(7, DS3231_ADDRESS);
   boolean presence = checkI2Cpresence(DS3231_ADDRESS);
 
-  if (presence && ((reg==0)||(reg==0x80))){
-    log = F("INIT: DS3231 detected");
-    RtcHardware = 3231;
-  } else if (presence){
+  if (presence && ((reg & 0x6c)==0)){
     log = F("INIT: DS1307 detected");
     RtcDS1307<TwoWire> Rtc(Wire);
     RtcHardware = 1307;
+  } else if (presence){
+    log = F("INIT: DS3231 detected");
+    RtcHardware = 3231;
   } else {
     log = F("INIT: no physical RTC detected");
   }
