@@ -21,9 +21,11 @@
 #define MQTT_VERSION MQTT_VERSION_3_1_1
 #endif
 
+//#define MQTT_MAX_TRANSFER_SIZE 128
+
 // MQTT_MAX_PACKET_SIZE : Maximum packet size
 #ifndef MQTT_MAX_PACKET_SIZE
-#define MQTT_MAX_PACKET_SIZE 384 // need to fix this here, because this define cannot be overruled within the Arduino sketch...
+#define MQTT_MAX_PACKET_SIZE 1024 // need to fix this here, because this define cannot be overruled within the Arduino sketch...
 #endif
 
 // MQTT_KEEPALIVE : keepAlive interval in Seconds
@@ -92,7 +94,7 @@ private:
    uint16_t readPacket(uint8_t*);
    boolean readByte(uint8_t * result);
    boolean readByte(uint8_t * result, uint16_t * index);
-   boolean write(uint8_t header, uint8_t* buf, uint16_t length);
+   boolean write(uint8_t header, uint8_t* buf, unsigned long length);
    uint16_t writeString(const char* string, uint8_t* buf, uint16_t pos);
    IPAddress ip;
    const char* domain;
@@ -130,7 +132,7 @@ public:
    boolean publish(const char* topic, const char* payload);
    boolean publish(const char* topic, const char* payload, boolean retained);
    boolean publish(const char* topic, const uint8_t * payload, unsigned int plength);
-   boolean publish(const char* topic, const uint8_t * payload, unsigned int plength, boolean retained);
+   boolean publish(const char* topic, const uint8_t * payload, unsigned long plength, boolean retained);
    boolean publish_P(const char* topic, const uint8_t * payload, unsigned int plength, boolean retained);
    boolean subscribe(const char* topic);
    boolean subscribe(const char* topic, uint8_t qos);

@@ -172,6 +172,42 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       }
     }
   }
+
+
+  if (sTopic.endsWith("write/status")) {
+    if (sPayload.equals("")){ 
+      //addLog(LOG_LEVEL_DEBUG, "Ignoring write/status message");
+      return;
+    }
+
+    String temp = deviceStatusJson();
+    addLog(LOG_LEVEL_DEBUG, temp);
+    boolean publishResult = false;
+    String status = F("/%chipid%/status");
+    status.replace(F("%chipid%"), String(ESP.getChipId(),HEX));
+    if (MQTTclient.publish(status.c_str(), (uint8_t*)temp.c_str(), temp.length(), false)){
+      addLog(LOG_LEVEL_DEBUG, "Transmit status OK");
+    } else {
+      addLog(LOG_LEVEL_DEBUG, "Transmit status NOK");
+    }
+
+    // Zera a mensagem retida no server
+    ControllerSettingsStruct ControllerSettings;
+    LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
+    String subscribed = ControllerSettings.Subscribe;
+    subscribed.replace(F("%devicename%"), Settings.Name);
+    subscribed.replace(F("%chipid%"), String(ESP.getChipId(),HEX));
+    subscribed.replace(F("/#"), "");
+    subscribed.trim();
+    subscribed += "/status";
+    log = "Reset retained message: ";
+    log += subscribed;
+    addLog(LOG_LEVEL_DEBUG, log);
+
+    publishResult = MQTTclient.publish(subscribed.c_str(), "", true);
+    
+    //////////////////////////////////
+  }
 }
 
 
@@ -199,6 +235,7 @@ void MQTTConnect()
   
   for (byte x = 1; x < 3; x++)
   {
+    deviceStatus.serverConnTotal++;
     String log = "";
 
     if ((SecuritySettings.ControllerUser[0] != 0) && (SecuritySettings.ControllerPassword[0] != 0))
@@ -219,16 +256,14 @@ void MQTTConnect()
       log += subscribeTo;
       addLog(LOG_LEVEL_INFO, log);
 
-      //MQTTclient.publish(LWTTopic.c_str(), "Connected");
-
       break; // end loop if succesfull
     }
     else
     {
+      deviceStatus.serverConnFail++;
       log = F("MQTT : connection fail");
       addLog(LOG_LEVEL_ERROR, log);
     }
-
     delay(500);
   }
 }

@@ -118,7 +118,6 @@ boolean WifiConnect(byte connectAttempts)
     connected = true;
   }
 
-  //try to connect to one of the access points
   if (connected) {
     // fix octet?
     if (Settings.IP_Octet != 0 && Settings.IP_Octet != 255)
@@ -148,10 +147,13 @@ boolean WifiConnect(byte connectAttempts)
       addLog(LOG_LEVEL_INFO, log);
     #endif
 
+
     return(true);
   }
 
   addLog(LOG_LEVEL_ERROR, F("WIFI : Could not connect to AP!"));
+  
+  deviceStatus.wifiConnFail++;
 
   //everything failed, activate AP mode (will deactivate automaticly after a while if its connected again)
   WifiAPMode(true);
@@ -166,7 +168,7 @@ boolean WifiConnect(byte connectAttempts)
 boolean WifiConnectSSID(char WifiSSID[], char WifiKey[], byte connectAttempts)
 {
   String log;
-
+  
   //already connected, need to disconnect first
   if (WiFi.status() == WL_CONNECTED)
     return(true);
@@ -177,6 +179,7 @@ boolean WifiConnectSSID(char WifiSSID[], char WifiKey[], byte connectAttempts)
 
   for (byte tryConnect = 1; tryConnect <= connectAttempts; tryConnect++)
   {
+    deviceStatus.wifiConnTotal++;
     log = F("WIFI : Connecting ");
     log += WifiSSID;
     log += F(" attempt #");

@@ -51,9 +51,10 @@
 
 #define DEFAULT_NAME        "Desto000X"         // Enter your device friendly name
 #define DEFAULT_SSID        "IO_think"          // Enter your network SSID
-#define DEFAULT_KEY         "19092017"            // Enter your network WPA key
-#define DEFAULT_DELAY       1                  // Enter your Send delay in seconds
+#define DEFAULT_KEY         "19092017"          // Enter your network WPA key
+#define DEFAULT_DELAY       1                   // Enter your Send delay in seconds
 #define DEFAULT_AP_KEY      "configesp"         // Enter network WPA key for AP (config) mode
+#define SSID_DISABLE_SLEEP  "desto_no_sleep"    
 
 #define DEFAULT_USE_STATIC_IP   false           // true or false enabled or disabled set static IP
 #define DEFAULT_IP          "192.168.0.50"      // Enter your IP address
@@ -403,6 +404,7 @@ struct SettingsStruct
   uint32_t      syncInterval;
   int8_t        samplesPerTx;
   boolean       sdcardMQTTlogger;
+  double        batteryCalibration;
   //its safe to extend this struct, up to several bytes, default values in config are 0
   //look in misc.ino how config.dat is used because also other stuff is stored in it at different offsets.
   //TODO: document config.dat somewhere here
@@ -600,7 +602,6 @@ String lowestRAMfunction = "";
 
 // Compile time
 RtcDateTime compileTime = RtcDateTime(__DATE__, __TIME__);
-unsigned long clockCompare = compileTime.Epoch32Time();
 uint32_t sysTime = 0;
 uint32_t sysTimeGMT = 0;
 
@@ -625,15 +626,45 @@ struct memLogStruct {
 boolean WebServerInitialized = false;
 boolean MQTTconnected = false;
 boolean NextWakeRadioOn = true;
-unsigned long freeSpace = 0;
 
-#undef DEBUG_WIFI
+struct deviceStatus {
+  unsigned long serverPing;
+  unsigned long wifiConnFail;
+  unsigned long serverConnFail;
+  unsigned long wifiConnTotal;
+  unsigned long serverConnTotal;
+  unsigned long freeSpace;
+  unsigned long compileTime;
+  unsigned long uptime;
+  int samplespertx;
+  int deepsleepdelay;
+  double  batteryVoltage;
+} deviceStatus;
+
+
+// Beacon Packet buffer
+uint8_t packet[128] = { 0x80, 0x00, 0x00, 0x00, 
+                /*4*/   0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 
+                /*10*/  0x01, 0x02, 0x03, 0x04, 0x05, 0x06,
+                /*16*/  0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 
+                /*22*/  0xc0, 0x6c, 
+                /*24*/  0x83, 0x51, 0xf7, 0x8f, 0x0f, 0x00, 0x00, 0x00, 
+                /*32*/  0x64, 0x00, 
+                /*34*/  0x01, 0x04, 
+                /* SSID */
+                /*36*/  0x00, 0x06, 0x72, 0x72, 0x72, 0x72, 0x72, 0x72,
+                        0x01, 0x08, 0x82, 0x84,
+                        0x8b, 0x96, 0x24, 0x30, 0x48, 0x6c, 0x03, 0x01, 
+                /*56*/  0x04};                       
+
 
 /*********************************************************************************************\
  * SETUP
 \*********************************************************************************************/
 void setup()
 {
+  deviceStatus.compileTime = compileTime.Epoch32Time();
+
   lowestRAM = FreeMem();
 
   Serial.begin(115200);
@@ -754,7 +785,7 @@ void setup()
   hardwareInit();
 
   log = F("INIT: free space for data logging: ");
-  log += String(freeSpace)+F(" bytes");
+  log += String(deviceStatus.freeSpace)+F(" bytes");
   addLog(LOG_LEVEL_INFO, log);
 
   log = "INIT: Reading Counter: ";
@@ -884,9 +915,10 @@ void setup()
   }
 
   if (TxData){
-    // Inicia automaticamente a estação!
+    // Inicia automaticamente a estação e o modo AP!
     WifiConnect(1);
-  
+    //wifi_promiscuous_enable(1); 
+    WifiAPMode(true);
     // setup UDP
     if (Settings.UDPPort != 0) portUDP.begin(Settings.UDPPort);
 
@@ -1070,25 +1102,7 @@ void runOncePerSecond()
     WifiAPMode(false);
   }
 
-  // STATUS
-  //////////////////////////////////////////////////////////////////////////////////////////////////////////
-  // log = String(F("MQTT connection failures: "))+String(100*connectionFailures/connTotal)+String(F("%"));;
-  // log += String(F("\nWifi connection failures: "))+String(100*wifiConnFail/wifiConnTotal)+String(F("%"));
-  
-  if (TxData){
-    // TODO criar global
-    ControllerSettingsStruct ControllerSettings;
-    LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings)); // todo index is now fixed to 0
-    IPAddress MQTTBrokerIP(ControllerSettings.IP);
-    bool ret = Ping.ping(MQTTBrokerIP,1);
-    int serverPing = Ping.averageTime();
-    String log = String(F("\nServer ping: "))+String(serverPing)+String(F("ms"));
-    
-    log += String(F("\nWifi scan: \n"))+String(wifiScan());
-    // log += String(F("\nFree space: ")+String(freeSpace)+String(F(" bytes")));
 
-    addLog(LOG_LEVEL_DEBUG, log);
-  }
 }
 
 /*********************************************************************************************\
@@ -1107,6 +1121,9 @@ void runEach30Seconds()
   vcc = ESP.getVcc() / 1000.0;
   #endif
 
+  if (TxData){
+    saveDeviceStatus();
+  }
 }
 
 

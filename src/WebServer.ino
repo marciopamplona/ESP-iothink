@@ -2781,6 +2781,7 @@ void handle_advanced() {
   String globalsync = WebServer.arg(F("globalsync"));
   String cft = WebServer.arg(F("cft"));
   String MQTTRetainFlag = WebServer.arg(F("mqttretainflag"));
+  String batcalib = WebServer.arg(F("batcalib"));
 
   String reply = "";
   addHeader(true, reply);
@@ -2817,6 +2818,8 @@ void handle_advanced() {
     Settings.GlobalSync = (globalsync == "on");
     Settings.ConnectionFailuresThreshold = cft.toInt();
     Settings.MQTTRetainFlag = (MQTTRetainFlag == "on");
+    Settings.batteryCalibration = batcalib.toFloat();
+
     if (!SaveSettings())
       reply += F("<span style=\"color:red\">Error saving to flash!</span>");
     if (Settings.UseNTP || Settings.htpEnable)
@@ -2876,6 +2879,8 @@ void handle_advanced() {
 
   //TODO sort settings in groups or move to other pages/groups
   addFormSubHeader(reply, F("Special and Experimental Settings"));
+
+  addFormTextBox(reply, F("Battery calibration"), F("batcalib"), String(Settings.batteryCalibration), 5);
 
   addFormNumericBox(reply, F("Fixed IP Octet"), F("ip"), Settings.IP_Octet, 0, 255);
 

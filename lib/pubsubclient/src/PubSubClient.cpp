@@ -356,16 +356,16 @@ boolean PubSubClient::publish(const char* topic, const uint8_t* payload, unsigne
     return publish(topic, payload, plength, false);
 }
 
-boolean PubSubClient::publish(const char* topic, const uint8_t* payload, unsigned int plength, boolean retained) {
+boolean PubSubClient::publish(const char* topic, const uint8_t* payload, unsigned long plength, boolean retained) {
     if (connected()) {
         if (MQTT_MAX_PACKET_SIZE < 5 + 2+strlen(topic) + plength) {
             // Too long
             return false;
         }
         // Leave room in the buffer for header and variable length field
-        uint16_t length = 5;
+        unsigned long length = 5;
         length = writeString(topic,buffer,length);
-        uint16_t i;
+        unsigned long i;
         for (i=0;i<plength;i++) {
             buffer[length++] = payload[i];
         }
@@ -379,6 +379,7 @@ boolean PubSubClient::publish(const char* topic, const uint8_t* payload, unsigne
 }
 
 boolean PubSubClient::publish_P(const char* topic, const uint8_t* payload, unsigned int plength, boolean retained) {
+
     uint8_t llen = 0;
     uint8_t digit;
     unsigned int rc = 0;
@@ -423,13 +424,14 @@ boolean PubSubClient::publish_P(const char* topic, const uint8_t* payload, unsig
     return rc == tlen + 4 + plength;
 }
 
-boolean PubSubClient::write(uint8_t header, uint8_t* buf, uint16_t length) {
+boolean PubSubClient::write(uint8_t header, uint8_t* buf, unsigned long length) {
     uint8_t lenBuf[4];
-    uint8_t llen = 0;
+    unsigned long llen = 0;
     uint8_t digit;
-    uint8_t pos = 0;
+    unsigned long pos = 0;
     uint16_t rc;
-    uint16_t len = length;
+    unsigned long len = length;
+
     do {
         digit = len % 128;
         len = len / 128;
@@ -441,14 +443,14 @@ boolean PubSubClient::write(uint8_t header, uint8_t* buf, uint16_t length) {
     } while(len>0);
 
     buf[4-llen] = header;
-    for (int i=0;i<llen;i++) {
+    for (unsigned long i=0;i<llen;i++) {
         buf[5-llen+i] = lenBuf[i];
     }
 
 #ifdef MQTT_MAX_TRANSFER_SIZE
     uint8_t* writeBuf = buf+(4-llen);
-    uint16_t bytesRemaining = length+1+llen;  //Match the length type
-    uint8_t bytesToWrite;
+    unsigned long bytesRemaining = length+1+llen;  //Match the length type
+    unsigned long bytesToWrite;
     boolean result = true;
     while((bytesRemaining > 0) && result) {
         bytesToWrite = (bytesRemaining > MQTT_MAX_TRANSFER_SIZE)?MQTT_MAX_TRANSFER_SIZE:bytesRemaining;

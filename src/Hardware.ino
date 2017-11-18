@@ -89,7 +89,7 @@ void hardwareInit()
       double fs = 0.00048828125*blocksFree;
       log += String(F(" - freeSpace: ")) + fs + F("MB");
       addLog(LOG_LEVEL_INFO, log);
-      freeSpace = blocksFree*512;
+      deviceStatus.freeSpace = blocksFree*512;
     }
     else
     {

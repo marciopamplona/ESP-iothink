@@ -492,7 +492,7 @@ void fileSystemCheck()
       ResetFactory();
     }
     f.close();
-    freeSpace = fs_info.totalBytes - fs_info.usedBytes;
+    deviceStatus.freeSpace = fs_info.totalBytes - fs_info.usedBytes;
   }
   else
   {
@@ -879,6 +879,9 @@ String LoadFromFile(char* fname, int index, byte* memAddress, int datasize)
     return(String());
   }
   
+  if (datasize == 0) {
+    datasize = filesize-index;
+  }
 
   SPIFFS_CHECK(f.seek(index, fs::SeekSet), fname);
   byte *pointerToByteToRead = memAddress;
@@ -1000,6 +1003,7 @@ void ResetFactory(void)
   Settings.InitSPI = false;
   Settings.UseValueLogger = true;
   Settings.sdcardMQTTlogger = false;
+  Settings.batteryCalibration = 4.41;
 
   for (byte x = 0; x < TASKS_MAX; x++)
   {
@@ -2208,7 +2212,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
   String logger;
 
   if (sdcardEnabled){
-    if ((freeSpace > 4096) && Settings.sdcardMQTTlogger) {
+    if ((deviceStatus.freeSpace > 4096) && Settings.sdcardMQTTlogger) {
       logger = "MQTT logger: logging to SDCARD [";
       logger += publish;
       logger += ';';
@@ -2244,7 +2248,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
         unsentFile.seekSet(RTC.seekPosition);
 
         // Se não houver espaço, recomeça a gravar no início do arquivo
-        if ((RTC.seekPosition + 512 > freeSpace)){
+        if ((RTC.seekPosition + 512 > deviceStatus.freeSpace)){
           RTC.seekPosition = 0;
         } else {
           RTC.seekPosition+=datasize;
@@ -2296,7 +2300,7 @@ void MQTTLogger(String publish, double value, byte taskIndex, byte deviceValueNa
       }
 
       // Se não houver espaço, recomeça a gravar no início do arquivo
-      if ((RTC.seekPosition + 256 > freeSpace)){
+      if ((RTC.seekPosition + 256 > deviceStatus.freeSpace)){
         RTC.seekPosition = 0;
       } else {
         RTC.seekPosition+=datasize;
@@ -2366,11 +2370,11 @@ void sendMqttLog(){
           byteCopyIdx++;
           
           if ((x % structSize)==0) {
-            if (dataChunk.epoch < clockCompare-(Settings.TimeZone*60UL)){
+            if (dataChunk.epoch < deviceStatus.compileTime-(Settings.TimeZone*60UL)){
               log = F("MQTT sender: ERROR reading unsent file, registry epoch: ");
               log += String(dataChunk.epoch);
               log += F(" - compile time: ");
-              log += String(clockCompare);
+              log += String(deviceStatus.compileTime);
               addLog(LOG_LEVEL_DEBUG, log);
               goto removefile;
             }
@@ -2433,11 +2437,11 @@ void sendMqttLog(){
           byteCopyIdx++;
           
           if ((x % structSize)==0) {
-            if (dataChunk.epoch < clockCompare-(Settings.TimeZone*60UL)){
+            if (dataChunk.epoch < deviceStatus.compileTime-(Settings.TimeZone*60UL)){
               log = F("MQTT sender: ERROR reading unsent file, registry epoch: ");
               log += String(dataChunk.epoch);
               log += F(" - compile time: ");
-              log += String(clockCompare);
+              log += String(deviceStatus.compileTime);
               addLog(LOG_LEVEL_DEBUG, log);
               f.close();
               SPIFFS.remove((char*)"mqtt-datalog-spiffs.unsent");
@@ -2682,7 +2686,7 @@ unsigned long getHtpTime(){
             if (success && line.startsWith(F("Date:"))){
               string_to_tm((tmElements_t *)&tm, line);
               secsSince1900 = timeElementsToSecs();
-              if (secsSince1900 > clockCompare) validTime = true;
+              if (secsSince1900 > deviceStatus.compileTime) validTime = true;
             }
 
             yield();
@@ -2710,7 +2714,7 @@ bool syncedClock(){
     addLog(LOG_LEVEL_DEBUG, F("CLOCK : not synced - lost power"));
     return false;
   }
-  if (sysTime > clockCompare) {
+  if (sysTime > deviceStatus.compileTime) {
     lostPower = false;
     return true;
   } else {
@@ -2805,19 +2809,146 @@ uint8_t readI2Cregister(uint8_t regAddress, byte deviceAddress){
 
 String wifiScan() {
   String reply = "";
-  int n = WiFi.scanNetworks();
-  if (n == 0) {
+  // StaticJsonBuffer<2048> jsonBuffer;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root = jsonBuffer.createObject();
+  JsonArray& networks = root.createNestedArray("networks");
+  
+  /*
+  {
+    "networks":
+      [
+        {"ssid": "XXXX", "bssid": "xx:Xx:xx:xx", "signal": "-93"},
+        {"ssid": "XXXX", "bssid": "xx:Xx:xx:xx", "signal": "-93"},
+        {"ssid": "XXXX", "bssid": "xx:Xx:xx:xx", "signal": "-93"}
+      ]
+  }
+  */
 
+  int n = WiFi.scanNetworks()-1; // Sempre retorna uma rede nula ?
+
+  if (n == 0) {
   } else {
     for (int i = 0; i < n; ++i)
     {
-      reply += WiFi.SSID(i);
-      reply += ";";
-      reply += WiFi.BSSIDstr(i);
-      reply += ";";
-      reply += WiFi.RSSI(i);
-      reply += "\n";
+      // JsonObject& t = networks.createNestedObject();
+      JsonObject& t = jsonBuffer.createObject();
+      t["ssid"] = characterEncode(WiFi.SSID(i).c_str());
+      t["bssid"] = WiFi.BSSIDstr(i);
+      t["signal"] = String(WiFi.RSSI(i));
+      if (!networks.add(t)) addLog(LOG_LEVEL_DEBUG, "ERROR creating JSON");
+      if (strcmp(WiFi.SSID(i).c_str(),SSID_DISABLE_SLEEP)==0){
+        Settings.deepSleep = 0;
+        SaveSettings();
+      }
     }
   }
+  root.printTo(reply);
   return reply;
+}
+
+String deviceStatusJson(){
+  String reply = "";
+  fs::File f = SPIFFS.open((char *)"devicestatus.dat", "r+");
+  unsigned long filesize, datasize;
+
+  if (!f) {
+    addLog(LOG_LEVEL_DEBUG, F("devicestatus.dat read error"));
+    f.close();
+    return String();
+  } else {
+    filesize = f.size();
+    f.close();
+  }
+  datasize = filesize - sizeof(struct deviceStatus)+2;
+  char byteTemp[datasize];
+
+  LoadFromFile((char *)"devicestatus.dat", 0, (byte*)&deviceStatus, sizeof(struct deviceStatus));
+  LoadFromFile((char *)"devicestatus.dat", sizeof(struct deviceStatus), (byte*)byteTemp, 0);
+  String temp = String(byteTemp);
+
+  // StaticJsonBuffer<1024> jsonBuffer;
+  DynamicJsonBuffer jsonBuffer;
+  JsonObject& root =  jsonBuffer.parseObject(temp);
+
+  root["serverping"] = String(deviceStatus.serverPing);
+  root["wificonnfail"] = String(deviceStatus.wifiConnFail);
+  root["serverconnfail"] = String(deviceStatus.serverConnFail);
+  root["wificonntotal"] = String(deviceStatus.wifiConnTotal);
+  root["serverconntotal"] = String(deviceStatus.serverConnTotal);
+  root["freespace"] = String(deviceStatus.freeSpace);
+  root["compiletime"] = String(deviceStatus.compileTime);
+  root["uptime"] = String(deviceStatus.uptime);
+  root["samplespertx"] = String(deviceStatus.samplespertx);
+  root["deepsleepdelay"] = String(deviceStatus.deepsleepdelay);
+  root["batteryvoltage"] = String(deviceStatus.batteryVoltage);
+
+  /*
+  {
+    "serverping":"220",
+    "wificonnfail":"10",
+    "wificonntotal":"100",
+    "serverconnfail":"10",
+    "serverconntotal":"200",
+    "freespace":"23400",
+    "compiletime":"15000022",
+    "uptime":"2000",
+    "samplespertx":"3",
+    "deepsleepdelay":"900",
+    "batteryvoltage":"3.7",
+    "networks":
+      [
+        {"ssid": "XXXX", "bssid": "xx:Xx:xx:xx", "signal": "-93"},
+        {"ssid": "XXXX", "bssid": "xx:Xx:xx:xx", "signal": "-93"},
+        {"ssid": "XXXX", "bssid": "xx:Xx:xx:xx", "signal": "-93"}
+      ]
+  }
+  */
+  root.printTo(reply);
+  return reply;
+
+}
+
+void loadDeviceStatus(){
+
+}
+
+void saveDeviceStatus(){
+  // Grava arquivo para persistência
+  // Formato:
+  //    struct deviceStatus;
+  //    string wifiscanlist;
+  String wifiScanList = wifiScan();
+
+  ControllerSettingsStruct ControllerSettings;
+  LoadControllerSettings(0, (byte*)&ControllerSettings, sizeof(ControllerSettings));
+  IPAddress MQTTBrokerIP(ControllerSettings.IP);
+  
+  Ping.ping(MQTTBrokerIP);
+  deviceStatus.serverPing = Ping.averageTime();
+  deviceStatus.uptime = wdcounter / 2;
+  deviceStatus.samplespertx = Settings.samplesPerTx;
+  deviceStatus.deepsleepdelay = Settings.Delay;
+  deviceStatus.batteryVoltage = (Settings.batteryCalibration/1024.0)*analogRead(A0);
+
+  SaveToFile((char *)"devicestatus.dat", 0, (byte*)&deviceStatus, sizeof(struct deviceStatus));
+  SaveToFile((char *)"devicestatus.dat", sizeof(struct deviceStatus), (byte*)wifiScanList.c_str(), wifiScanList.length()+1);
+}
+
+String characterEncode(const char* msg)
+{
+  const char *hex = "0123456789abcdef";
+  String encodedMsg = "";
+
+  while (*msg != '\0') {
+    if ( (*msg >= 32) && (*msg < 127) ) {
+      encodedMsg += *msg;
+    } else {
+      encodedMsg += '%';
+      encodedMsg += hex[*msg >> 4];
+      encodedMsg += hex[*msg & 15];
+    }
+    msg++;
+  }
+  return encodedMsg;
 }
