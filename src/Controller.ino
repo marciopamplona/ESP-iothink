@@ -140,21 +140,30 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
         strcpy(SecuritySettings.WifiSSID,root.get<String>("ssid1").c_str());
       }
       if (root["ssid2"].success()){
-        strcpy(SecuritySettings.WifiSSID,root.get<String>("ssid2").c_str());
+        strcpy(SecuritySettings.WifiSSID2,root.get<String>("ssid2").c_str());
       }
       if (root["key1"].success()){
-        strcpy(SecuritySettings.WifiSSID,root.get<String>("key1").c_str());
+        strcpy(SecuritySettings.WifiKey,root.get<String>("key1").c_str());
       }
       if (root["key2"].success()){
-        strcpy(SecuritySettings.WifiSSID,root.get<String>("key2").c_str());
+        strcpy(SecuritySettings.WifiKey2,root.get<String>("key2").c_str());
       }
       if (root["controlleruser"].success()){
-        strcpy(SecuritySettings.WifiSSID,root.get<String>("controlleruser").c_str());
+        strcpy(SecuritySettings.ControllerUser[0],root.get<String>("controlleruser").c_str());
       }
       if (root["controllerpwd"].success()){
-        strcpy(SecuritySettings.WifiSSID,root.get<String>("controllerpwd").c_str());
+        strcpy(SecuritySettings.ControllerPassword[0],root.get<String>("controllerpwd").c_str());
       }
-
+      if (root["controllername"].success()){
+        strncpy(ControllerSettings.HostName, root.get<String>("controllername").c_str(), sizeof(ControllerSettings.HostName));
+        IPAddress IP;
+        WiFi.hostByName(ControllerSettings.HostName, IP);
+        for (byte x = 0; x < 4; x++)
+          ControllerSettings.IP[x] = IP[x];
+      }
+      if (root["controllerport"].success()){
+        ControllerSettings.Port = root.get<String>("controllerport").toInt();
+      }
       if (root["reset"].success()){
         if (publishResult){
           if ((root.get<String>("reset")).toInt()){
@@ -189,6 +198,7 @@ void callback(char* c_topic, byte* b_payload, unsigned int length) {
       addLog(LOG_LEVEL_DEBUG, "Transmit status OK");
     } else {
       addLog(LOG_LEVEL_DEBUG, "Transmit status NOK");
+      addLog(LOG_LEVEL_DEBUG, "Tamanho do payload:"+String(temp.length()));
     }
 
     // Zera a mensagem retida no server

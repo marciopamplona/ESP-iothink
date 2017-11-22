@@ -35,6 +35,9 @@ void deepSleep(int delay, boolean radioON)
   if (!isDeepSleepEnabled())
   {
     //Deep sleep canceled by GPIO16(D0)=LOW
+    addLog(LOG_LEVEL_INFO, F("SLEEP: Deep sleep cancelled"));
+    WifiAPconfig();
+    dnsServer.start(DNS_PORT, "*", apIP);
     return;
   }
 
@@ -47,6 +50,8 @@ void deepSleep(int delay, boolean radioON)
     if (!isDeepSleepEnabled())
     {
       addLog(LOG_LEVEL_INFO, F("SLEEP: Deep sleep cancelled (GPIO16 connected to GND)"));
+      WifiAPconfig();
+      dnsServer.start(DNS_PORT, "*", apIP);
       return;
     }
   }

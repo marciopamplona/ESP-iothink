@@ -663,8 +663,7 @@ uint8_t packet[128] = { 0x80, 0x00, 0x00, 0x00,
 \*********************************************************************************************/
 void setup()
 {
-  loadDeviceStatus();
-  deviceStatus.compileTime = compileTime.Epoch32Time();
+
 
   lowestRAM = FreeMem();
 
@@ -743,6 +742,8 @@ void setup()
 
   fileSystemCheck();
   LoadSettings();
+  loadDeviceStatus();
+  deviceStatus.compileTime = compileTime.Epoch32Time();
 
   Settings.UseRules = 0;
   if (Settings.samplesPerTx == 0){
@@ -889,7 +890,8 @@ void setup()
   // }
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
-
+  WiFi.softAP(WifiGetAPssid().c_str(), SecuritySettings.WifiAPKey);
+  
   if (!isDeepSleepEnabled()){
     WifiAPconfig();
   }
@@ -919,7 +921,7 @@ void setup()
     // Inicia automaticamente a estação e o modo AP!
     WifiConnect(1);
     //wifi_promiscuous_enable(1); 
-    WifiAPMode(true);
+    //WifiAPMode(true);
     // setup UDP
     if (Settings.UDPPort != 0) portUDP.begin(Settings.UDPPort);
 
@@ -968,8 +970,8 @@ void loop()
         for (int i=0; i < 10; i++){
           if(Settings.ControllerEnabled[0]) MQTTclient.loop();
         }
+        saveDeviceStatus();
       }
-      saveDeviceStatus();
       deepSleep(Settings.Delay, NextWakeRadioOn);
       //deepsleep will never return, its a special kind of reboot
   }
