@@ -969,6 +969,7 @@ void loop()
           if(Settings.ControllerEnabled[0]) MQTTclient.loop();
         }
       }
+      saveDeviceStatus();
       deepSleep(Settings.Delay, NextWakeRadioOn);
       //deepsleep will never return, its a special kind of reboot
   }
