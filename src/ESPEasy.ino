@@ -663,6 +663,7 @@ uint8_t packet[128] = { 0x80, 0x00, 0x00, 0x00,
 \*********************************************************************************************/
 void setup()
 {
+  loadDeviceStatus();
   deviceStatus.compileTime = compileTime.Epoch32Time();
 
   lowestRAM = FreeMem();

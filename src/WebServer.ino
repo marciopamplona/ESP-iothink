@@ -2862,7 +2862,7 @@ void handle_advanced() {
 
   addFormCheckBox(reply, F("SD Card MQTT string logger"), F("sdcardmqttlogger"), Settings.sdcardMQTTlogger);
 
-  addFormCheckBox(reply, F("Data logger function"), F("valuelogger"), Settings.UseValueLogger);
+  //addFormCheckBox(reply, F("Data logger function"), F("valuelogger"), Settings.UseValueLogger);
 
 
   addFormSubHeader(reply, F("Serial Settings"));

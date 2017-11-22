@@ -2910,7 +2910,7 @@ String deviceStatusJson(){
 }
 
 void loadDeviceStatus(){
-
+  LoadFromFile((char *)"devicestatus.dat", 0, (byte*)&deviceStatus, sizeof(struct deviceStatus));
 }
 
 void saveDeviceStatus(){
