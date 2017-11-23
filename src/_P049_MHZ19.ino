@@ -15,7 +15,7 @@
 #define PLUGIN_ID_049         49
 #define PLUGIN_NAME_049       "Gases - CO2 MH-Z19 [TESTING]"
 #define PLUGIN_VALUENAME1_049 "PPM"
-#define PLUGIN_VALUENAME2_049 "Temperature" // Temperature in C
+#define PLUGIN_VALUENAME2_049 "TP" // Temperature in C
 #define PLUGIN_VALUENAME3_049 "U" // Undocumented, minimum measurement per time period?
 #define PLUGIN_READ_TIMEOUT   3000
 

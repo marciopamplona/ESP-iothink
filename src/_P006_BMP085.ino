@@ -5,9 +5,8 @@
 #define PLUGIN_006
 #define PLUGIN_ID_006        6
 #define PLUGIN_NAME_006       "Environment - BMP085/180"
-#define PLUGIN_VALUENAME1_006 "Temperature"
-#define PLUGIN_VALUENAME2_006 "Pressure"
-
+#define PLUGIN_VALUENAME1_006 "TP"
+#define PLUGIN_VALUENAME2_006 "PA"
 
 // TODO this will not work if we have more than one of this task!
 boolean Plugin_006_init = false;

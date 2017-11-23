@@ -16,11 +16,9 @@
 #define PLUGIN_051
 #define PLUGIN_ID_051        51
 #define PLUGIN_NAME_051       "Environment - AM2320 [TEST]"
-#define PLUGIN_VALUENAME1_051 "Temperature"
-#define PLUGIN_VALUENAME2_051 "Humidity"
-
-
-
+#define PLUGIN_VALUENAME1_051 "TP"
+#define PLUGIN_VALUENAME2_051 "HR"
+#define PLUGIN_NAME_TAG_051   "SE01"
 
 boolean Plugin_051(byte function, struct EventStruct *event, String& string)
 {
@@ -52,6 +50,7 @@ boolean Plugin_051(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
+        strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_051));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_051));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_051));
         break;

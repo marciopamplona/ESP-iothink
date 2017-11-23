@@ -6,8 +6,8 @@
 #define PLUGIN_032
 #define PLUGIN_ID_032        32
 #define PLUGIN_NAME_032       "Environment - MS5611 (GY-63)"
-#define PLUGIN_VALUENAME1_032 "Temperature"
-#define PLUGIN_VALUENAME2_032 "Pressure"
+#define PLUGIN_VALUENAME1_032 "TP"
+#define PLUGIN_VALUENAME2_032 "PA"
 
 enum
 {

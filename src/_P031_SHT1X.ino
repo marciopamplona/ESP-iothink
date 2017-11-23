@@ -5,8 +5,8 @@
 #define PLUGIN_031
 #define PLUGIN_ID_031         31
 #define PLUGIN_NAME_031       "Environment - SHT1X"
-#define PLUGIN_VALUENAME1_031 "Temperature"
-#define PLUGIN_VALUENAME2_031 "Humidity"
+#define PLUGIN_VALUENAME1_031 "TP"
+#define PLUGIN_VALUENAME2_031 "HR"
 
 boolean Plugin_031_init = false;
 byte Plugin_031_DATA_Pin = 0;

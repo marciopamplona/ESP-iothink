@@ -14,7 +14,7 @@
 #define PLUGIN_069
 #define PLUGIN_ID_069         69
 #define PLUGIN_NAME_069       "Environment - LM75A [TESTING]"
-#define PLUGIN_VALUENAME1_069 "Temperature"
+#define PLUGIN_VALUENAME1_069 "TP"
 
 
 #ifndef LM75A_h

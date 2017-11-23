@@ -10,7 +10,8 @@
 #define PLUGIN_015
 #define PLUGIN_ID_015        15
 #define PLUGIN_NAME_015       "Luminosity - TSL2561"
-#define PLUGIN_VALUENAME1_015 "Lux"
+#define PLUGIN_VALUENAME1_015 "LM"
+#define PLUGIN_NAME_TAG_015   "SE06"
 
 boolean Plugin_015_init = false;
 
@@ -320,6 +321,7 @@ boolean Plugin_015(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
+		strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_015));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_015));
         break;
       }

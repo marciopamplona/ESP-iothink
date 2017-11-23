@@ -1021,7 +1021,6 @@ void addPinStateSelect(String& str, String name, int choice)
 //********************************************************************************
 // Web Interface device page
 //********************************************************************************
-//19480 (11128)
 void handle_devices() {
   if (!isLoggedIn()) return;
 

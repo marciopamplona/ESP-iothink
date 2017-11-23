@@ -5,7 +5,8 @@
 #define PLUGIN_004
 #define PLUGIN_ID_004         4
 #define PLUGIN_NAME_004       "Environment - DS18b20"
-#define PLUGIN_VALUENAME1_004 "Temperature"
+#define PLUGIN_VALUENAME1_004 "TP"
+#define PLUGIN_NAME_TAG_004   "SE03"
 
 uint8_t Plugin_004_DallasPin;
 
@@ -39,15 +40,17 @@ boolean Plugin_004(byte function, struct EventStruct * event, String& string)
 
         case PLUGIN_GET_DEVICEVALUENAMES:
         {
+            strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_004));
             strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_004));
             break;
         }
 
         case PLUGIN_WEBFORM_LOAD:
         {
+            
             uint8_t savedAddress[8];
             byte resolutionChoice = 0;
-
+            
             // Scan the onewire bus and fill dropdown list with devicecount on this GPIO.
             Plugin_004_DallasPin = Settings.TaskDevicePin1[event->TaskIndex];
 

@@ -6,8 +6,9 @@
 #define PLUGIN_014
 #define PLUGIN_ID_014        14
 #define PLUGIN_NAME_014       "Environment - SI7021/HTU21D"
-#define PLUGIN_VALUENAME1_014 "Temperature"
-#define PLUGIN_VALUENAME2_014 "Humidity"
+#define PLUGIN_VALUENAME1_014 "TP"
+#define PLUGIN_VALUENAME2_014 "HR"
+#define PLUGIN_NAME_TAG_014   "SE07"
 
 boolean Plugin_014_init = false;
 
@@ -65,6 +66,7 @@ boolean Plugin_014(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
+        strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_014));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_014));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_014));
         break;

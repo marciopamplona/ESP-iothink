@@ -5,8 +5,9 @@
 #define PLUGIN_030
 #define PLUGIN_ID_030        30
 #define PLUGIN_NAME_030       "Environment - BMP280"
-#define PLUGIN_VALUENAME1_030 "Temperature"
-#define PLUGIN_VALUENAME2_030 "Pressure"
+#define PLUGIN_VALUENAME1_030 "TP"
+#define PLUGIN_VALUENAME2_030 "PA"
+#define PLUGIN_NAME_TAG_030   "SE02"
 
 enum
 {
@@ -96,6 +97,7 @@ boolean Plugin_030(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
+        strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_030));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_030));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[1], PSTR(PLUGIN_VALUENAME2_030));
         break;

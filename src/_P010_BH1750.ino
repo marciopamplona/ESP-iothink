@@ -6,8 +6,8 @@
 #define PLUGIN_010
 #define PLUGIN_ID_010         10
 #define PLUGIN_NAME_010       "Luminosity - BH1750"
-#define PLUGIN_VALUENAME1_010 "Lux"
-
+#define PLUGIN_VALUENAME1_010 "LM"
+#define PLUGIN_NAME_TAG_010   "SE05"
 
 boolean Plugin_010(byte function, struct EventStruct *event, String& string)
   {
@@ -40,6 +40,7 @@ boolean Plugin_010(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
+        strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_010));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_010));
         break;
       }

@@ -7,7 +7,8 @@
 #define PLUGIN_024
 #define PLUGIN_ID_024 24
 #define PLUGIN_NAME_024 "Digital IR Thermometer - MLX90614"
-#define PLUGIN_VALUENAME1_024 "Temperature"
+#define PLUGIN_VALUENAME1_024 "TP"
+#define PLUGIN_NAME_TAG_024   "SE04"
 
 boolean Plugin_024_init = false;
 
@@ -62,6 +63,7 @@ boolean Plugin_024(byte function, struct EventStruct *event, String& string)
 
     case PLUGIN_GET_DEVICEVALUENAMES:
       {
+        strcpy_P(ExtraTaskSettings.TaskDeviceName, PSTR(PLUGIN_NAME_TAG_024));
         strcpy_P(ExtraTaskSettings.TaskDeviceValueNames[0], PSTR(PLUGIN_VALUENAME1_024));
         break;
       }
