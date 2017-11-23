@@ -14,8 +14,7 @@ void tcpCleanup()
 
 bool isDeepSleepEnabled()
 {
-  if (!Settings.deepSleep)
-    return false;
+  if (!Settings.deepSleep) return false;
 
   //cancel deep sleep loop by pulling the pin GPIO16(D0) to GND
   //recommended wiring: 3-pin-header with 1=RST, 2=D0, 3=GND
@@ -24,6 +23,12 @@ bool isDeepSleepEnabled()
   pinMode(16,INPUT_PULLUP);
   if (!digitalRead(16))
   {
+    addLog(LOG_LEVEL_INFO, F("SLEEP: Deep sleep disabled by GPIO D0 - Saving in flash - Remove wiring and press RST"));
+    Settings.deepSleep = false;
+    RTC.readCounter = 0;
+    saveToRTC();
+    SaveSettings();
+    deepSleepStart(1000, true);
     return false;
   }
   return true;
@@ -36,8 +41,12 @@ void deepSleep(int delay, boolean radioON)
   {
     //Deep sleep canceled by GPIO16(D0)=LOW
     addLog(LOG_LEVEL_INFO, F("SLEEP: Deep sleep cancelled"));
-    WifiAPconfig();
-    dnsServer.start(DNS_PORT, "*", apIP);
+    if (TxData){
+      WifiAPconfig();
+      dnsServer.start(DNS_PORT, "*", apIP);
+    } else {
+
+    }
     return;
   }
 

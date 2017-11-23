@@ -3,7 +3,7 @@
 //
 //   SD card (SPI):         RTC (I2C):      DEEP SLEEP WAKEUP:
 //   ==============         ==========      ==================
-//   CS:   D3 ou D8         SDA: D2         D0 -> RST
+//   CS:   D3 ou D8         SDA: D2         D0 -> GND
 //   MISO: D6               SCL: D1
 //   MOSI: D7               
 //   SCK:  D5
@@ -891,7 +891,7 @@ void setup()
 
   WiFi.persistent(false); // Do not use SDK storage of SSID/WPA parameters
   WiFi.softAP(WifiGetAPssid().c_str(), SecuritySettings.WifiAPKey);
-  
+
   if (!isDeepSleepEnabled()){
     WifiAPconfig();
   }
